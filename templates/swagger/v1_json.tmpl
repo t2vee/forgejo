@@ -12776,10 +12776,15 @@
           },
           {
             "type": "file",
-            "description": "attachment to upload",
+            "description": "attachment to upload (this parameter is incompatible with `external_url`, one of the two is required)",
             "name": "attachment",
-            "in": "formData",
-            "required": true
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "url to external asset (this parameter is incompatible with `attachment`, one of the two is required)",
+            "name": "external_url",
+            "in": "formData"
           }
         ],
         "responses": {
@@ -17588,6 +17593,14 @@
           "type": "integer",
           "format": "int64",
           "x-go-name": "Size"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "attachment",
+            "external"
+          ],
+          "x-go-name": "Type"
         },
         "uuid": {
           "type": "string",

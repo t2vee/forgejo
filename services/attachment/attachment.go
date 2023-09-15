@@ -43,6 +43,25 @@ func NewAttachment(ctx context.Context, attach *repo_model.Attachment, file io.R
 	return attach, err
 }
 
+func NewExternalAttachment(ctx context.Context, attach *repo_model.Attachment) (*repo_model.Attachment, error) {
+	if attach.RepoID == 0 {
+		return nil, fmt.Errorf("attachment %s should belong to a repository", attach.Name)
+	}
+	if attach.ExternalURL == "" {
+		return nil, fmt.Errorf("attachment %s should have a external url", attach.Name)
+	}
+
+	attach.UUID = uuid.New().String()
+
+	eng := db.GetEngine(ctx)
+	if attach.NoAutoTime {
+		eng.NoAutoTime()
+	}
+	_, err := eng.Insert(attach)
+
+	return attach, err
+}
+
 // UploadAttachment upload new attachment into storage and update database
 func UploadAttachment(ctx context.Context, file io.Reader, allowedTypes string, fileSize int64, opts *repo_model.Attachment) (*repo_model.Attachment, error) {
 	buf := make([]byte, 1024)

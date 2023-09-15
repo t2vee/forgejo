@@ -31,6 +31,7 @@ type Attachment struct {
 	NoAutoTime        bool               `xorm:"-"`
 	CreatedUnix       timeutil.TimeStamp `xorm:"created"`
 	CustomDownloadURL string             `xorm:"-"`
+	ExternalURL       string
 }
 
 func init() {
@@ -59,6 +60,10 @@ func (a *Attachment) RelativePath() string {
 
 // DownloadURL returns the download url of the attached file
 func (a *Attachment) DownloadURL() string {
+	if a.ExternalURL != "" {
+		return a.ExternalURL
+	}
+
 	if a.CustomDownloadURL != "" {
 		return a.CustomDownloadURL
 	}

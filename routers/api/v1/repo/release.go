@@ -238,7 +238,7 @@ func CreateRelease(ctx *context.APIContext) {
 			IsTag:        false,
 			Repo:         ctx.Repo.Repository,
 		}
-		if err := release_service.CreateRelease(ctx.Repo.GitRepo, rel, nil, ""); err != nil {
+		if err := release_service.CreateRelease(ctx.Repo.GitRepo, rel, "", nil); err != nil {
 			if repo_model.IsErrReleaseAlreadyExist(err) {
 				ctx.Error(http.StatusConflict, "ReleaseAlreadyExist", err)
 			} else {
@@ -262,7 +262,7 @@ func CreateRelease(ctx *context.APIContext) {
 		rel.Publisher = ctx.Doer
 		rel.Target = form.Target
 
-		if err = release_service.UpdateRelease(ctx, ctx.Doer, ctx.Repo.GitRepo, rel, nil, nil, nil); err != nil {
+		if err = release_service.UpdateRelease(ctx, ctx.Doer, ctx.Repo.GitRepo, rel, nil); err != nil {
 			ctx.Error(http.StatusInternalServerError, "UpdateRelease", err)
 			return
 		}
@@ -336,7 +336,7 @@ func EditRelease(ctx *context.APIContext) {
 	if form.IsPrerelease != nil {
 		rel.IsPrerelease = *form.IsPrerelease
 	}
-	if err := release_service.UpdateRelease(ctx, ctx.Doer, ctx.Repo.GitRepo, rel, nil, nil, nil); err != nil {
+	if err := release_service.UpdateRelease(ctx, ctx.Doer, ctx.Repo.GitRepo, rel, nil); err != nil {
 		ctx.Error(http.StatusInternalServerError, "UpdateRelease", err)
 		return
 	}

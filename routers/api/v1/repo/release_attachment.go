@@ -5,6 +5,8 @@ package repo
 
 import (
 	"net/http"
+	"net/url"
+	"path"
 
 	repo_model "code.gitea.io/gitea/models/repo"
 	"code.gitea.io/gitea/modules/context"
@@ -12,6 +14,7 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/upload"
+	"code.gitea.io/gitea/modules/validation"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/attachment"
 	"code.gitea.io/gitea/services/convert"
@@ -176,11 +179,18 @@ func CreateReleaseAttachment(ctx *context.APIContext) {
 	//   description: name of the attachment
 	//   type: string
 	//   required: false
+	// # There is no good way to specify "either 'attachment' or 'external_url' is required" with OpenAPI
+	// # https://github.com/OAI/OpenAPI-Specification/issues/256
 	// - name: attachment
 	//   in: formData
-	//   description: attachment to upload
+	//   description: attachment to upload (this parameter is incompatible with `external_url`, one of the two is required)
 	//   type: file
-	//   required: true
+	//   required: false
+	// - name: external_url
+	//   in: formData
+	//   description: url to external asset (this parameter is incompatible with `attachment`, one of the two is required)
+	//   type: string
+	//   required: false
 	// responses:
 	//   "201":
 	//     "$ref": "#/responses/Attachment"
@@ -203,30 +213,74 @@ func CreateReleaseAttachment(ctx *context.APIContext) {
 
 	// Get uploaded file from request
 	file, header, err := ctx.Req.FormFile("attachment")
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetFile", err)
+	hasAttachmentFile := err == nil
+	externalURL := ctx.Req.FormValue("external_url")
+	hasExternalURL := externalURL != ""
+
+	if hasAttachmentFile && hasExternalURL {
+		ctx.Error(http.StatusBadRequest, "DuplicateAttachment", "'attachment' and 'external_url' are mutually exclusive")
 		return
 	}
-	defer file.Close()
 
-	filename := header.Filename
+	if !hasAttachmentFile && !hasExternalURL {
+		ctx.Error(http.StatusBadRequest, "MissingAttachment", "missing 'attachment' or 'external_url'")
+		return
+	}
+
+	if hasAttachmentFile {
+		defer file.Close()
+
+		filename := header.Filename
+		if query := ctx.FormString("name"); query != "" {
+			filename = query
+		}
+
+		// Create a new attachment and save the file
+		attach, err := attachment.UploadAttachment(ctx, file, setting.Repository.Release.AllowedTypes, header.Size, &repo_model.Attachment{
+			Name:       filename,
+			UploaderID: ctx.Doer.ID,
+			RepoID:     ctx.Repo.Repository.ID,
+			ReleaseID:  releaseID,
+		})
+		if err != nil {
+			if upload.IsErrFileTypeForbidden(err) {
+				ctx.Error(http.StatusBadRequest, "DetectContentType", err)
+				return
+			}
+			ctx.Error(http.StatusInternalServerError, "NewAttachment", err)
+			return
+		}
+
+		ctx.JSON(http.StatusCreated, convert.ToAPIAttachment(ctx.Repo.Repository, attach))
+		return
+	}
+
+	if !validation.IsValidExternalURL(externalURL) {
+		ctx.Error(http.StatusBadRequest, "InvalidExternalURL", "invalid 'external_url'")
+		return
+	}
+
+	url, err := url.Parse(externalURL)
+	if err != nil {
+		ctx.Error(http.StatusBadRequest, "InvalidExternalURL", err)
+		return
+	}
+
+	filename := path.Base(url.Path)
+
 	if query := ctx.FormString("name"); query != "" {
 		filename = query
 	}
 
-	// Create a new attachment and save the file
-	attach, err := attachment.UploadAttachment(ctx, file, setting.Repository.Release.AllowedTypes, header.Size, &repo_model.Attachment{
-		Name:       filename,
-		UploaderID: ctx.Doer.ID,
-		RepoID:     ctx.Repo.Repository.ID,
-		ReleaseID:  releaseID,
+	attach, err := attachment.NewExternalAttachment(ctx, &repo_model.Attachment{
+		Name:        filename,
+		UploaderID:  ctx.Doer.ID,
+		RepoID:      ctx.Repo.Repository.ID,
+		ReleaseID:   releaseID,
+		ExternalURL: externalURL,
 	})
 	if err != nil {
-		if upload.IsErrFileTypeForbidden(err) {
-			ctx.Error(http.StatusBadRequest, "DetectContentType", err)
-			return
-		}
-		ctx.Error(http.StatusInternalServerError, "NewAttachment", err)
+		ctx.Error(http.StatusInternalServerError, "NewExternalAttachment", err)
 		return
 	}
 

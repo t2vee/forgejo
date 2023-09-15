@@ -17,6 +17,7 @@ export function initRepoReleaseNew() {
 
   initTagNameEditor();
   initRepoReleaseEditor();
+  initAddExternalLinkButton();
 }
 
 function initTagNameEditor() {
@@ -50,4 +51,35 @@ function initRepoReleaseEditor() {
     return;
   }
   initComboMarkdownEditor(editor);
+}
+
+let newAttachmentCount = 0;
+
+function initAddExternalLinkButton() {
+  const addExternalLinkButton = document.getElementById('add-external-link');
+  if (!addExternalLinkButton) return;
+
+  addExternalLinkButton.addEventListener('click', () => {
+    newAttachmentCount += 1;
+    const attachmentTemplate = document.getElementById('attachment-template');
+
+    const newAttachment = attachmentTemplate.cloneNode(true);
+    newAttachment.id = `attachment-N${newAttachmentCount}`;
+    newAttachment.classList.remove('gt-hidden');
+
+    const attachmentName = newAttachment.querySelector('input[name="attachment-template-new-name"]');
+    attachmentName.name = `attachment-new-name-${newAttachmentCount}`;
+    attachmentName.required = true;
+
+    const attachmentExtUrl = newAttachment.querySelector('input[name="attachment-template-new-exturl"]');
+    attachmentExtUrl.name = `attachment-new-exturl-${newAttachmentCount}`;
+    attachmentExtUrl.required = true;
+
+    const attachmentDel = newAttachment.querySelector('.remove-rel-attach');
+    attachmentDel.addEventListener('click', () => {
+      newAttachment.remove();
+    });
+
+    attachmentTemplate.parentNode.insertBefore(newAttachment, attachmentTemplate);
+  });
 }

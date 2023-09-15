@@ -18,6 +18,8 @@ type Attachment struct {
 	Created     time.Time `json:"created_at"`
 	UUID        string    `json:"uuid"`
 	DownloadURL string    `json:"browser_download_url"`
+	// Enum: attachment,external
+	Type string `json:"type"`
 }
 
 // EditAttachmentOptions options for editing attachments

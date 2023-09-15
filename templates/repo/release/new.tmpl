@@ -62,18 +62,45 @@
 				{{range .attachments}}
 					<div class="field flex-text-block" id="attachment-{{.ID}}">
 						<div class="flex-text-inline gt-f1">
-							<input name="attachment-edit-{{.UUID}}"  class="attachment_edit" required value="{{.Name}}">
+							<div class="flex-text-inline" title="{{ctx.Locale.Tr "repo.release.type_attachment"}}">
+								{{if .ExternalURL}}
+									{{svg "octicon-link-external" 16 "gt-mr-2"}}
+								{{else}}
+									{{svg "octicon-package" 16 "gt-mr-2"}}
+								{{end}}
+							</div>
+							<input name="attachment-edit-name-{{.UUID}}" placeholder="{{ctx.Locale.Tr "repo.release.asset_name"}}" class="attachment_edit" required value="{{.Name}}">
 							<input name="attachment-del-{{.UUID}}" type="hidden" value="false">
-							<span class="ui text grey gt-whitespace-nowrap">{{.Size | FileSize}}</span>
-							<span data-tooltip-content="{{ctx.Locale.Tr "repo.release.download_count" (ctx.Locale.PrettyNumber .DownloadCount)}}">
-								{{svg "octicon-info"}}
-							</span>
+							{{if .ExternalURL}}
+								<input name="attachment-edit-exturl-{{.UUID}}"  class="attachment_edit" required value="{{.ExternalURL}}">
+							{{else}}
+								<span class="gt-f1"></span>
+								<span class="ui text grey gt-whitespace-nowrap">{{.Size | FileSize}}</span>
+								<span data-tooltip-content="{{ctx.Locale.Tr "repo.release.download_count" (ctx.Locale.PrettyNumber .DownloadCount)}}">
+									{{svg "octicon-info"}}
+								</span>
+							{{end}}
 						</div>
-						<a class="ui mini compact red button remove-rel-attach" data-id="{{.ID}}" data-uuid="{{.UUID}}">
+						<a class="ui mini red button remove-rel-attach gt-ml-3" data-id="{{.ID}}" data-uuid="{{.UUID}}">
 							{{ctx.Locale.Tr "remove"}}
 						</a>
 					</div>
 				{{end}}
+				<div class="field flex-text-block gt-hidden" id="attachment-template">
+					<div class="flex-text-inline gt-f1">
+						<div class="flex-text-inline" title="{{ctx.Locale.Tr "repo.release.type_external_asset"}}">
+							{{svg "octicon-link-external" 16 "gt-mr-2"}}
+						</div>
+						<input name="attachment-template-new-name" placeholder="{{ctx.Locale.Tr "repo.release.asset_name"}}" class="attachment_edit">
+						<input name="attachment-template-new-exturl" placeholder="{{ctx.Locale.Tr "repo.release.asset_external_url"}}" class="attachment_edit">
+					</div>
+					<a class="ui mini red button remove-rel-attach gt-ml-3">
+						{{ctx.Locale.Tr "remove"}}
+					</a>
+				</div>
+				<a class="ui mini button gt-float-right gt-mb-4 gt-mt-2" id="add-external-link">
+					{{ctx.Locale.Tr "repo.release.add_external_asset"}}
+				</a>
 				{{if .IsAttachmentEnabled}}
 					<div class="field">
 						{{template "repo/upload" .}}
