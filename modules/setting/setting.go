@@ -228,6 +228,8 @@ func LoadSettings() {
 
 // LoadSettingsForInstall initializes the settings for install
 func LoadSettingsForInstall() {
+	initAllLoggers()
+
 	loadDBSetting(CfgProvider)
 	loadServiceFrom(CfgProvider)
 	loadMailerFrom(CfgProvider)
