@@ -35,7 +35,7 @@ func TestEventFormatTextMessage(t *testing.T) {
 		"msg format: %v %v", "arg0", NewColoredValue("arg1", FgBlue),
 	)
 
-	assert.Equal(t, `[PREFIX] 2020/01/02 03:04:05.000000 filename:123:caller [E] [pid] msg format: arg0 arg1
+	assert.Equal(t, `<3>[PREFIX] 2020/01/02 03:04:05.000000 filename:123:caller [E] [pid] msg format: arg0 arg1
 	stacktrace
 
 `, string(res))
@@ -53,5 +53,5 @@ func TestEventFormatTextMessage(t *testing.T) {
 		"msg format: %v %v", "arg0", NewColoredValue("arg1", FgBlue),
 	)
 
-	assert.Equal(t, "[PREFIX] \x1b[36m2020/01/02 03:04:05.000000 \x1b[0m\x1b[32mfilename:123:\x1b[32mcaller\x1b[0m \x1b[1;31m[E]\x1b[0m [\x1b[93mpid\x1b[0m] msg format: arg0 \x1b[34marg1\x1b[0m\n\tstacktrace\n\n", string(res))
+	assert.Equal(t, "<3>[PREFIX] \x1b[36m2020/01/02 03:04:05.000000 \x1b[0m\x1b[32mfilename:123:\x1b[32mcaller\x1b[0m \x1b[1;31m[E]\x1b[0m [\x1b[93mpid\x1b[0m] msg format: arg0 \x1b[34marg1\x1b[0m\n\tstacktrace\n\n", string(res))
 }
