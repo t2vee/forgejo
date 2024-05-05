@@ -39,6 +39,7 @@ type UpdateOptions struct {
 	SetLastLogin                 bool
 	RepoAdminChangeTeamAccess    optional.Option[bool]
 	EnableRepoUnitHints          optional.Option[bool]
+	KeepPronounsPrivate          optional.Option[bool]
 }
 
 func UpdateUser(ctx context.Context, u *user_model.User, opts *UpdateOptions) error {
@@ -94,6 +95,12 @@ func UpdateUser(ctx context.Context, u *user_model.User, opts *UpdateOptions) er
 		u.EnableRepoUnitHints = opts.EnableRepoUnitHints.Value()
 
 		cols = append(cols, "enable_repo_unit_hints")
+	}
+
+	if opts.KeepPronounsPrivate.Has() {
+		u.KeepPronounsPrivate = opts.KeepPronounsPrivate.Value()
+
+		cols = append(cols, "keep_pronouns_private")
 	}
 
 	if opts.AllowGitHook.Has() {
