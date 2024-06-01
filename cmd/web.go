@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"code.gitea.io/gitea/modules/process"
 	"code.gitea.io/gitea/modules/public"
 	"code.gitea.io/gitea/modules/setting"
+	otel "code.gitea.io/gitea/modules/tracing"
 	"code.gitea.io/gitea/routers"
 	"code.gitea.io/gitea/routers/install"
 
@@ -154,6 +156,13 @@ func serveInstalled(ctx *cli.Context) error {
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
 	setting.MustInstalled()
+	otelShutdown, err := otel.SetupOTelSDK(context.Background())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, otelShutdown(context.Background()))
+	}()
 
 	showWebStartupMessage("Prepare to run web server")
 
@@ -209,7 +218,7 @@ func serveInstalled(ctx *cli.Context) error {
 
 	// Set up Chi routes
 	webRoutes := routers.NormalRoutes()
-	err := listen(webRoutes, true)
+	err = listen(webRoutes, true)
 	<-graceful.GetManager().Done()
 	log.Info("PID: %d Forgejo Web Finished", os.Getpid())
 	log.GetManager().Close()
