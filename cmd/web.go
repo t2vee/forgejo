@@ -19,10 +19,10 @@ import (
 	"code.gitea.io/gitea/modules/container"
 	"code.gitea.io/gitea/modules/graceful"
 	"code.gitea.io/gitea/modules/log"
+	otel "code.gitea.io/gitea/modules/opentelemetry"
 	"code.gitea.io/gitea/modules/process"
 	"code.gitea.io/gitea/modules/public"
 	"code.gitea.io/gitea/modules/setting"
-	otel "code.gitea.io/gitea/modules/tracing"
 	"code.gitea.io/gitea/routers"
 	"code.gitea.io/gitea/routers/install"
 
@@ -156,9 +156,9 @@ func serveInstalled(ctx *cli.Context) error {
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
 	setting.MustInstalled()
-	otelShutdown, err := otel.SetupOTelSDK(context.Background())
+	otelShutdown, err := otel.SetupOTel(context.Background())
 	if err != nil {
-		return err
+		log.Error("Telemetry setup failed with error %s", err)
 	}
 	defer func() {
 		err = errors.Join(err, otelShutdown(context.Background()))
