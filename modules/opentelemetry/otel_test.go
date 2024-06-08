@@ -1,36 +1,37 @@
-package opentelemetry_test
+package opentelemetry
 
 import (
 	"context"
 	"testing"
 
-	"code.gitea.io/gitea/modules/opentelemetry"
 	"code.gitea.io/gitea/modules/setting"
-
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
 )
 
-func TestTraceDisabled(t *testing.T) {
+func TestNoopDefault(t *testing.T) {
 	ctx := context.Background()
-	shutdown, err := opentelemetry.SetupOTel(ctx)
-	defer func() {
-		shutdown(ctx)
-	}()
-	if assert.NoError(t, err) {
-		_, span := opentelemetry.Tracer.Start(ctx, "debug")
-		assert.False(t, span.IsRecording())
-	}
+	shutdown, err := SetupOTel(ctx)
+	assert.NoError(t, err)
+	defer shutdown(ctx)
+	tracer := otel.Tracer("test_noop")
+
+	_, span := tracer.Start(ctx, "test span")
+
+	assert.False(t, span.SpanContext().HasTraceID())
+	assert.False(t, span.SpanContext().HasSpanID())
 }
 
-func TestTraceEnabled(t *testing.T) {
+func TestExporter(t *testing.T) {
+	setting.OpenTelemetry.Traces.Endpoint = "http://localhost:4317"
 	ctx := context.Background()
-	setting.OpenTelemetry.Enabled = true
-	shutdown, err := opentelemetry.SetupOTel(ctx)
-	defer func() {
-		shutdown(ctx)
-	}()
-	if assert.NoError(t, err) {
-		_, span := opentelemetry.Tracer.Start(ctx, "debug")
-		assert.True(t, span.IsRecording())
-	}
+	shutdown, err := SetupOTel(ctx)
+	assert.NoError(t, err)
+	defer shutdown(ctx)
+	tracer := otel.Tracer("test_grpc")
+
+	_, span := tracer.Start(ctx, "test span")
+
+	assert.True(t, span.SpanContext().HasTraceID())
+	assert.True(t, span.SpanContext().HasSpanID())
 }
