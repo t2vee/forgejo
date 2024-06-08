@@ -5,12 +5,12 @@ package setting
 
 import (
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"code.gitea.io/gitea/modules/log"
 	// "go.opentelemetry.io/otel/sdk/resource"
-	// semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 const (
@@ -40,12 +40,12 @@ type traceConfig struct {
 	Compression       string            // Supported value - ""/"gzip"
 	Timeout           time.Duration     // The timeout value for all outgoing data
 	Sampler           string
-	SamplerArg        int64
+	SamplerArg        float64
 }
 type resourceConfig struct {
-	ServiceName        string            // Value of the service.name resource attribute, defaults to APP_NAME in lowercase
-	ResourceAttributes map[string]string // Not implemented, Key-value pairs to be used as resource attributes
-	EnabledDetectors   []string          // Not implemented
+	ServiceName string // Value of the service.name resource attribute, defaults to APP_NAME in lowercase
+	// ResourceAttributes []attribute.KeyValue // Not implemented, Key-value pairs to be used as resource attributes
+	EnabledDetectors []string // Not implemented
 }
 
 func loadOpenTelemetryFrom(rootCfg ConfigProvider) {
@@ -65,14 +65,12 @@ func loadOpenTelemetryFrom(rootCfg ConfigProvider) {
 	if sec != nil {
 		loadTraceConfig(sec)
 	}
-
-	// OpenTelemetry.ServiceName = sec.Key("SERVICE_NAME").MustString("forgejo") //Consider defaulting to APP_NAME, after slogan change lands
-
-	// sec
 }
 
 func loadResourceConfig(sec ConfigSection) {
 	OpenTelemetry.Resource.ServiceName = sec.Key("SERVICE_NAME").MustString(OpenTelemetry.Resource.ServiceName)
+	os.Setenv("OTEL_RESOURCE_ATTRIBUTES", sec.Key("RESOURCE_ATTRIBUTES").MustString("")) // Let otel handle resource attributes
+
 }
 
 func loadTraceConfig(sec ConfigSection) {

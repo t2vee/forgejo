@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/url"
 
+	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -37,6 +38,8 @@ const (
 func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
+	otel.SetErrorHandler(otelErrorHandler{})
+
 	shutdown = func(ctx context.Context) error {
 		var err error
 		for _, fn := range shutdownFuncs {
@@ -59,7 +62,6 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 	}
 
 	shutdownFuncs = append(shutdownFuncs, traceShutdown)
-
 	return shutdown, nil
 }
 
@@ -71,9 +73,6 @@ func newTraceExporter(ctx context.Context) (*otlptrace.Exporter, error) {
 	opts := []otlptracegrpc.Option{}
 	opts = append(opts, otlptracegrpc.WithEndpoint(endpoint.Host))
 	opts = append(opts, otlptracegrpc.WithTimeout(setting.OpenTelemetry.Traces.Timeout))
-	if len(setting.OpenTelemetry.Traces.Headers) != 0 {
-		opts = append(opts, otlptracegrpc.WithHeaders(setting.OpenTelemetry.Traces.Headers))
-	}
 	if setting.OpenTelemetry.Traces.Insecure || endpoint.Scheme == "http" || endpoint.Scheme == "unix" {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
@@ -82,7 +81,6 @@ func newTraceExporter(ctx context.Context) (*otlptrace.Exporter, error) {
 		opts = append(opts, otlptracegrpc.WithCompressor(setting.OpenTelemetry.Traces.Compression))
 	}
 
-	// otlptracegrpc.WithTLSCredentials(c)
 	return otlptracegrpc.New(ctx, opts...)
 }
 
@@ -123,6 +121,10 @@ func newSampler() sdktrace.Sampler {
 		return sdktrace.AlwaysSample()
 	case AlwaysOff:
 		return sdktrace.NeverSample()
+	case ParentBasedTraceIdRatio:
+		return sdktrace.ParentBased(sdktrace.TraceIDRatioBased(setting.OpenTelemetry.Traces.SamplerArg))
+	case ParentBasedAlwaysOff:
+		return sdktrace.ParentBased(sdktrace.NeverSample())
 	case ParentBasedAlwaysOn:
 		return sdktrace.ParentBased(sdktrace.AlwaysSample())
 	default:
@@ -131,6 +133,7 @@ func newSampler() sdktrace.Sampler {
 }
 
 func newResource(ctx context.Context) (*resource.Resource, error) {
+	resource.Environment()
 	return resource.New(ctx,
 		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),
@@ -140,4 +143,11 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 		resource.WithAttributes(
 			semconv.ServiceName(setting.OpenTelemetry.Resource.ServiceName), semconv.ServiceVersion(setting.ForgejoVersion),
 		))
+}
+
+type otelErrorHandler struct {
+}
+
+func (o otelErrorHandler) Handle(err error) {
+	log.Error("internal opentelemetry error was raised: %s", err)
 }
