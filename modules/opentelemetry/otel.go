@@ -6,17 +6,20 @@ package opentelemetry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
+
+	"github.com/go-logr/logr/funcr"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 )
 
 // type Compression string
@@ -29,16 +32,22 @@ const (
 const (
 	AlwaysOn                string = "always_on"
 	AlwaysOff               string = "always_off"
-	TraceIdRatio            string = "traceidratio"
+	TraceIDRatio            string = "traceidratio"
 	ParentBasedAlwaysOn     string = "parentbased_always_on"
 	ParentBasedAlwaysOff    string = "parentbased_always_off"
-	ParentBasedTraceIdRatio string = "parentbased_traceidratio"
+	ParentBasedTraceIDRatio string = "parentbased_traceidratio"
 )
 
 func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err error) {
-	var shutdownFuncs []func(context.Context) error
-
+	// Redirect otel logger to write to common forgejo log at info
+	logWrap := funcr.New(func(prefix, args string) {
+		log.Info(fmt.Sprint(prefix, args))
+	}, funcr.Options{})
+	otel.SetLogger(logWrap)
+	// Redirect error handling to forgejo log as well
 	otel.SetErrorHandler(otelErrorHandler{})
+
+	var shutdownFuncs []func(context.Context) error
 
 	shutdown = func(ctx context.Context) error {
 		var err error
@@ -73,6 +82,9 @@ func newTraceExporter(ctx context.Context) (*otlptrace.Exporter, error) {
 	opts := []otlptracegrpc.Option{}
 	opts = append(opts, otlptracegrpc.WithEndpoint(endpoint.Host))
 	opts = append(opts, otlptracegrpc.WithTimeout(setting.OpenTelemetry.Traces.Timeout))
+	if len(setting.OpenTelemetry.Traces.Headers) != 0 {
+		opts = append(opts, otlptracegrpc.WithHeaders(setting.OpenTelemetry.Traces.Headers))
+	}
 	if setting.OpenTelemetry.Traces.Insecure || endpoint.Scheme == "http" || endpoint.Scheme == "unix" {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
@@ -121,7 +133,9 @@ func newSampler() sdktrace.Sampler {
 		return sdktrace.AlwaysSample()
 	case AlwaysOff:
 		return sdktrace.NeverSample()
-	case ParentBasedTraceIdRatio:
+	case TraceIDRatio:
+		return sdktrace.TraceIDRatioBased(setting.OpenTelemetry.Traces.SamplerArg)
+	case ParentBasedTraceIDRatio:
 		return sdktrace.ParentBased(sdktrace.TraceIDRatioBased(setting.OpenTelemetry.Traces.SamplerArg))
 	case ParentBasedAlwaysOff:
 		return sdktrace.ParentBased(sdktrace.NeverSample())
@@ -145,8 +159,7 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 		))
 }
 
-type otelErrorHandler struct {
-}
+type otelErrorHandler struct{}
 
 func (o otelErrorHandler) Handle(err error) {
 	log.Error("internal opentelemetry error was raised: %s", err)

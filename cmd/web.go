@@ -25,10 +25,10 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/routers"
 	"code.gitea.io/gitea/routers/install"
-	"go.opentelemetry.io/otel"
 
 	"github.com/felixge/fgprof"
 	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel"
 )
 
 // PIDFile could be set from build tag

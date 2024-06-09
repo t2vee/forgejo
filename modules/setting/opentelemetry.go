@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"code.gitea.io/gitea/modules/log"
-	// "go.opentelemetry.io/otel/sdk/resource"
 )
 
 const (
@@ -70,7 +69,6 @@ func loadOpenTelemetryFrom(rootCfg ConfigProvider) {
 func loadResourceConfig(sec ConfigSection) {
 	OpenTelemetry.Resource.ServiceName = sec.Key("SERVICE_NAME").MustString(OpenTelemetry.Resource.ServiceName)
 	os.Setenv("OTEL_RESOURCE_ATTRIBUTES", sec.Key("RESOURCE_ATTRIBUTES").MustString("")) // Let otel handle resource attributes
-
 }
 
 func loadTraceConfig(sec ConfigSection) {
@@ -110,7 +108,6 @@ func stringToHeader(value string) map[string]string {
 		}
 		trimmedValue := strings.TrimSpace(value)
 		headers[trimmedName] = trimmedValue
-
 	}
 	return headers
 }
