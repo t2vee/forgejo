@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
+	"strconv"
 
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
@@ -17,9 +17,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 )
 
 // type Compression string
@@ -75,16 +73,11 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 }
 
 func newTraceExporter(ctx context.Context) (*otlptrace.Exporter, error) {
-	endpoint, err := url.Parse(setting.OpenTelemetry.Traces.Endpoint)
-	if err != nil {
-		return nil, err
-	}
+	endpoint := setting.OpenTelemetry.Traces.Endpoint
+
 	opts := []otlptracegrpc.Option{}
 	opts = append(opts, otlptracegrpc.WithEndpoint(endpoint.Host))
 	opts = append(opts, otlptracegrpc.WithTimeout(setting.OpenTelemetry.Traces.Timeout))
-	if len(setting.OpenTelemetry.Traces.Headers) != 0 {
-		opts = append(opts, otlptracegrpc.WithHeaders(setting.OpenTelemetry.Traces.Headers))
-	}
 	if setting.OpenTelemetry.Traces.Insecure || endpoint.Scheme == "http" || endpoint.Scheme == "unix" {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
@@ -105,7 +98,7 @@ func newPropagator() propagation.TextMapPropagator {
 
 // Create new and register trace provider from user defined configuration
 func setupTraceProvider(ctx context.Context) (func(context.Context) error, error) {
-	if setting.OpenTelemetry.Traces.Endpoint == "" {
+	if setting.OpenTelemetry.Traces.Endpoint == nil {
 		return func(ctx context.Context) error { return nil }, nil
 	}
 	traceExporter, err := newTraceExporter(ctx)
@@ -134,9 +127,17 @@ func newSampler() sdktrace.Sampler {
 	case AlwaysOff:
 		return sdktrace.NeverSample()
 	case TraceIDRatio:
-		return sdktrace.TraceIDRatioBased(setting.OpenTelemetry.Traces.SamplerArg)
+		ratio, err := strconv.ParseFloat(setting.OpenTelemetry.Traces.SamplerArg, 64)
+		if err != nil {
+			ratio = 1
+		}
+		return sdktrace.TraceIDRatioBased(ratio)
 	case ParentBasedTraceIDRatio:
-		return sdktrace.ParentBased(sdktrace.TraceIDRatioBased(setting.OpenTelemetry.Traces.SamplerArg))
+		ratio, err := strconv.ParseFloat(setting.OpenTelemetry.Traces.SamplerArg, 64)
+		if err != nil {
+			ratio = 1
+		}
+		return sdktrace.ParentBased(sdktrace.TraceIDRatioBased(ratio))
 	case ParentBasedAlwaysOff:
 		return sdktrace.ParentBased(sdktrace.NeverSample())
 	case ParentBasedAlwaysOn:
@@ -144,19 +145,6 @@ func newSampler() sdktrace.Sampler {
 	default:
 		return sdktrace.ParentBased(sdktrace.AlwaysSample())
 	}
-}
-
-func newResource(ctx context.Context) (*resource.Resource, error) {
-	resource.Environment()
-	return resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
-		resource.WithProcess(),
-		resource.WithOS(),
-		resource.WithHost(),
-		resource.WithAttributes(
-			semconv.ServiceName(setting.OpenTelemetry.Resource.ServiceName), semconv.ServiceVersion(setting.ForgejoVersion),
-		))
 }
 
 type otelErrorHandler struct{}
