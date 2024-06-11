@@ -14,8 +14,6 @@ import (
 
 	"github.com/go-logr/logr/funcr"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
@@ -62,7 +60,12 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 
 	otel.SetTextMapPropagator(newPropagator())
 
-	traceShutdown, err := setupTraceProvider(ctx)
+	res, err := newResource(ctx)
+	if err != nil {
+		return shutdown, err
+	}
+
+	traceShutdown, err := setupTraceProvider(ctx, res)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -72,52 +75,11 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 	return shutdown, nil
 }
 
-func newTraceExporter(ctx context.Context) (*otlptrace.Exporter, error) {
-	endpoint := setting.OpenTelemetry.Traces.Endpoint
-
-	opts := []otlptracegrpc.Option{}
-	opts = append(opts, otlptracegrpc.WithEndpoint(endpoint.Host))
-	opts = append(opts, otlptracegrpc.WithTimeout(setting.OpenTelemetry.Traces.Timeout))
-	if setting.OpenTelemetry.Traces.Insecure || endpoint.Scheme == "http" || endpoint.Scheme == "unix" {
-		opts = append(opts, otlptracegrpc.WithInsecure())
-	}
-
-	if setting.OpenTelemetry.Traces.Compression == Gzip {
-		opts = append(opts, otlptracegrpc.WithCompressor(setting.OpenTelemetry.Traces.Compression))
-	}
-
-	return otlptracegrpc.New(ctx, opts...)
-}
-
 func newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	)
-}
-
-// Create new and register trace provider from user defined configuration
-func setupTraceProvider(ctx context.Context) (func(context.Context) error, error) {
-	if setting.OpenTelemetry.Traces.Endpoint == nil {
-		return func(ctx context.Context) error { return nil }, nil
-	}
-	traceExporter, err := newTraceExporter(ctx)
-	if err != nil {
-		return nil, err
-	}
-	r, err := newResource(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	sampler := newSampler()
-	traceProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sampler),
-		sdktrace.WithBatcher(traceExporter),
-		sdktrace.WithResource(r),
-	)
-	otel.SetTracerProvider(traceProvider)
-	return traceProvider.Shutdown, nil
 }
 
 func newSampler() sdktrace.Sampler {

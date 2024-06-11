@@ -77,7 +77,7 @@ func loadTraceConfig(rootSec, traceSec ConfigSection) {
 		return
 	}
 	OpenTelemetry.Traces.Insecure = traceSec.Key("INSECURE").MustBool(rootSec.Key("INSECURE").MustBool(OpenTelemetry.Traces.Insecure))
-	OpenTelemetry.Traces.Compression = traceSec.Key("COMPRESSION").MustString(rootSec.Key("COMPRESSION").MustString(OpenTelemetry.Traces.Compression))
+	OpenTelemetry.Traces.Compression = traceSec.Key("COMPRESSION").In(rootSec.Key("COMPRESSION").In(OpenTelemetry.Traces.Compression, []string{"gzip"}), []string{"gzip"})
 	OpenTelemetry.Traces.Timeout = traceSec.Key("TIMEOUT").MustDuration(rootSec.Key("TIMEOUT").MustDuration(OpenTelemetry.Traces.Timeout))
 	OpenTelemetry.Traces.Sampler = traceSec.Key("SAMPLER").MustString(OpenTelemetry.Traces.Sampler)
 	OpenTelemetry.Traces.SamplerArg = traceSec.Key("SAMPLER_ARG").MustString(OpenTelemetry.Traces.Sampler)
