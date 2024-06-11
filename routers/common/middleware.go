@@ -69,7 +69,9 @@ func ProtocolMiddlewares() (handlers []any) {
 	if setting.IsAccessLogEnabled() {
 		handlers = append(handlers, context.AccessLogger())
 	}
-	handlers = append(handlers, otelchi.Middleware("forgejo"))
+	if setting.IsOpenTelemetryEnabled() {
+		handlers = append(handlers, otelchi.Middleware("forgejo"))
+	}
 
 	return handlers
 }

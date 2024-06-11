@@ -21,7 +21,6 @@ const (
 // Opentelemetry settings
 var (
 	OpenTelemetry = struct {
-		Enabled  bool // turned on if any part of the feature is active - activation being marked by non-nil endpoint
 		Traces   traceConfig
 		Resource resourceConfig
 	}{
@@ -49,13 +48,11 @@ type resourceConfig struct {
 }
 
 func loadOpenTelemetryFrom(rootCfg ConfigProvider) {
-
 	sec := rootCfg.Section(opentelemetrySectionName)
 	traceSec := rootCfg.Section(opentelemetrySectionName + "." + opentelemetryTraceSubSectionName)
 	resourceSec := rootCfg.Section(opentelemetrySectionName + "." + opentelemetryResourceSubSectionName)
 	loadResourceConfig(resourceSec)
 	loadTraceConfig(sec, traceSec)
-	OpenTelemetry.Enabled = OpenTelemetry.Traces.Endpoint != nil
 }
 
 func loadResourceConfig(sec ConfigSection) {
@@ -137,4 +134,8 @@ func _stringToHeader(value string) map[string]string {
 	}
 
 	return headers
+}
+
+func IsOpenTelemetryEnabled() bool {
+	return OpenTelemetry.Traces.Endpoint != nil
 }
