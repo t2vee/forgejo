@@ -21,13 +21,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-// type Compression string
-
-const (
-	None string = ""     // No compression
-	Gzip string = "gzip" // Gzip compression
-)
-
 const (
 	AlwaysOn                string = "always_on"
 	AlwaysOff               string = "always_off"

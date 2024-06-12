@@ -11,7 +11,6 @@ import (
 	"code.gitea.io/gitea/modules/test"
 
 	"github.com/stretchr/testify/assert"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 )
@@ -45,15 +44,25 @@ func TestResourceServiceName(t *testing.T) {
 func TestResourceAttributes(t *testing.T) {
 	ctx := context.Background()
 	defer test.MockVariableValue(&setting.OpenTelemetry.Resource.EnabledDecoders, "")()
-	defer test.MockVariableValue(&setting.OpenTelemetry.Resource.Attributes, "Iuse=Arch,bythe=way")()
+	defer test.MockVariableValue(&setting.OpenTelemetry.Resource.Attributes, "Test=LABEL,broken,unescape=%XXlabel")()
 	res, err := newResource(ctx)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	expected, err := resource.New(ctx, resource.WithAttributes(
 		semconv.ServiceName(setting.OpenTelemetry.Resource.ServiceName),
 		semconv.ServiceVersion(setting.ForgejoVersion),
-		attribute.String("Iuse", "Arch"),
-		attribute.String("bythe", "way"),
 	))
 	assert.NoError(t, err)
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
+}
+
+func TestDecoderParity(t *testing.T) {
+	ctx := context.Background()
+	defer test.MockProtect(&setting.OpenTelemetry.Resource.EnabledDecoders)()
+	setting.OpenTelemetry.Resource.EnabledDecoders = "all"
+	res, err := newResource(ctx)
+	assert.NoError(t, err)
+	setting.OpenTelemetry.Resource.EnabledDecoders = "sdk,process,os,host"
+	res2, err := newResource(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
 }

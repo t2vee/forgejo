@@ -25,7 +25,8 @@ const (
 )
 
 func newResource(ctx context.Context) (*resource.Resource, error) {
-	opts := []resource.Option{WithForgejoSettings()}
+	opts := []resource.Option{resource.WithDetectors(fromSettings{})}
+
 	opts = append(opts, parseDecoderOpts()...)
 	opts = append(opts, resource.WithAttributes(
 		semconv.ServiceName(setting.OpenTelemetry.Resource.ServiceName), semconv.ServiceVersion(setting.ForgejoVersion),
@@ -56,10 +57,6 @@ func parseDecoderOpts() []resource.Option {
 		}
 	}
 	return opts
-}
-
-func WithForgejoSettings() resource.Option {
-	return resource.WithDetectors(fromSettings{})
 }
 
 type fromSettings struct{}

@@ -27,6 +27,14 @@ var (
 		Traces:   traceConfig{Timeout: 10 * time.Second, Sampler: "parentbased_always_on", SamplerArg: "1.0"},
 		Resource: resourceConfig{ServiceName: "forgejo", EnabledDecoders: "all"},
 	}
+	samplers = []string{
+		"always_on",
+		"always_off",
+		"traceidratio",
+		"parentbased_always_on",
+		"parentbased_always_off",
+		"parentbased_traceidratio",
+	}
 )
 
 type traceConfig struct {
@@ -67,7 +75,7 @@ func loadTraceConfig(rootSec, traceSec ConfigSection) {
 		return
 	}
 	endpoint := traceSec.Key("ENDPOINT").MustString(rootSec.Key("ENDPOINT").String())
-	if ep, err := url.Parse(endpoint); err != nil && ep.Host != "" {
+	if ep, err := url.Parse(endpoint); err == nil && ep.Host != "" {
 		OpenTelemetry.Traces.Endpoint = ep
 	} else {
 		log.Warn("Otel trace endpoint parsing failure, disabaling traces.")
@@ -76,8 +84,9 @@ func loadTraceConfig(rootSec, traceSec ConfigSection) {
 	OpenTelemetry.Traces.Insecure = traceSec.Key("INSECURE").MustBool(rootSec.Key("INSECURE").MustBool(OpenTelemetry.Traces.Insecure))
 	OpenTelemetry.Traces.Compression = traceSec.Key("COMPRESSION").In(rootSec.Key("COMPRESSION").In(OpenTelemetry.Traces.Compression, []string{"gzip"}), []string{"gzip"})
 	OpenTelemetry.Traces.Timeout = traceSec.Key("TIMEOUT").MustDuration(rootSec.Key("TIMEOUT").MustDuration(OpenTelemetry.Traces.Timeout))
-	OpenTelemetry.Traces.Sampler = traceSec.Key("SAMPLER").MustString(OpenTelemetry.Traces.Sampler)
+	OpenTelemetry.Traces.Sampler = traceSec.Key("SAMPLER").In(OpenTelemetry.Traces.Sampler, samplers)
 	OpenTelemetry.Traces.SamplerArg = traceSec.Key("SAMPLER_ARG").MustString(OpenTelemetry.Traces.Sampler)
+	OpenTelemetry.Traces.Headers = map[string]string{}
 	headers := rootSec.Key("HEADERS").String()
 	if headers != "" {
 		for k, v := range _stringToHeader(headers) {

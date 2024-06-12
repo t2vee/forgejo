@@ -15,8 +15,11 @@ import (
 
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/test"
+
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 var testSamplers = []string{
@@ -24,6 +27,13 @@ var testSamplers = []string{
 }
 
 func TestNoopDefault(t *testing.T) {
+	inMem := tracetest.NewInMemoryExporter()
+	called := false
+	exp := func(ctx context.Context) (sdktrace.SpanExporter, error) {
+		called = true
+		return inMem, nil
+	}
+	defer test.MockVariableValue(&newTraceExporter, exp)()
 	ctx := context.Background()
 	shutdown, err := SetupOTel(ctx)
 	assert.NoError(t, err)
@@ -34,6 +44,7 @@ func TestNoopDefault(t *testing.T) {
 
 	assert.False(t, span.SpanContext().HasTraceID())
 	assert.False(t, span.SpanContext().HasSpanID())
+	assert.False(t, called)
 }
 
 func TestOtelIntegration(t *testing.T) {
@@ -58,7 +69,7 @@ func TestOtelIntegration(t *testing.T) {
 	span.End()
 	// Give the exporter time to send the span
 	time.Sleep(10 * time.Second)
-	resp, err := http.Get("http://localhost:16686/api/services")
+	resp, err := http.Get("http://jaeger:16686/api/services")
 
 	assert.NoError(t, err)
 
@@ -68,11 +79,17 @@ func TestOtelIntegration(t *testing.T) {
 }
 
 func TestExporter(t *testing.T) {
+	inMem := tracetest.NewInMemoryExporter()
+	exp := func(ctx context.Context) (sdktrace.SpanExporter, error) {
+		return inMem, nil
+	}
+	defer test.MockVariableValue(&newTraceExporter, exp)()
 
+	// Force feature activation
 	endpoint, err := url.Parse("http://localhost:4317")
 	assert.NoError(t, err)
-
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, endpoint)()
+
 	defer test.MockProtect[string](&setting.OpenTelemetry.Traces.Sampler)()
 	for _, sampler := range testSamplers {
 		setting.OpenTelemetry.Traces.Sampler = sampler
