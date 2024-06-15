@@ -22,7 +22,7 @@ var newTraceExporter = func(ctx context.Context) (sdktrace.SpanExporter, error) 
 	tlsConf := &tls.Config{}
 	opts = append(opts, otlptracegrpc.WithEndpoint(endpoint.Host))
 	opts = append(opts, otlptracegrpc.WithTimeout(setting.OpenTelemetry.Traces.Timeout))
-	if setting.OpenTelemetry.Traces.Insecure || endpoint.Scheme == "http" || endpoint.Scheme == "unix" {
+	if setting.OpenTelemetry.Traces.Insecure {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
 
@@ -50,9 +50,8 @@ func setupTraceProvider(ctx context.Context, r *resource.Resource) (func(context
 		return nil, err
 	}
 
-	sampler := newSampler()
 	traceProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sampler),
+		sdktrace.WithSampler(setting.OpenTelemetry.Traces.Sampler),
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(r),
 	)

@@ -10,24 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 
 	"code.gitea.io/gitea/modules/log"
-	"code.gitea.io/gitea/modules/setting"
 
 	"github.com/go-logr/logr/funcr"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-)
-
-const (
-	AlwaysOn                string = "always_on"
-	AlwaysOff               string = "always_off"
-	TraceIDRatio            string = "traceidratio"
-	ParentBasedAlwaysOn     string = "parentbased_always_on"
-	ParentBasedAlwaysOff    string = "parentbased_always_off"
-	ParentBasedTraceIDRatio string = "parentbased_traceidratio"
 )
 
 func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err error) {
@@ -76,33 +64,6 @@ func newPropagator() propagation.TextMapPropagator {
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	)
-}
-
-func newSampler() sdktrace.Sampler {
-	switch setting.OpenTelemetry.Traces.Sampler {
-	case AlwaysOn:
-		return sdktrace.AlwaysSample()
-	case AlwaysOff:
-		return sdktrace.NeverSample()
-	case TraceIDRatio:
-		ratio, err := strconv.ParseFloat(setting.OpenTelemetry.Traces.SamplerArg, 64)
-		if err != nil {
-			ratio = 1
-		}
-		return sdktrace.TraceIDRatioBased(ratio)
-	case ParentBasedTraceIDRatio:
-		ratio, err := strconv.ParseFloat(setting.OpenTelemetry.Traces.SamplerArg, 64)
-		if err != nil {
-			ratio = 1
-		}
-		return sdktrace.ParentBased(sdktrace.TraceIDRatioBased(ratio))
-	case ParentBasedAlwaysOff:
-		return sdktrace.ParentBased(sdktrace.NeverSample())
-	case ParentBasedAlwaysOn:
-		return sdktrace.ParentBased(sdktrace.AlwaysSample())
-	default:
-		return sdktrace.ParentBased(sdktrace.AlwaysSample())
-	}
 }
 
 type otelErrorHandler struct{}

@@ -5,11 +5,8 @@ package opentelemetry
 
 import (
 	"context"
-	"io"
-	"net/http"
+	"net"
 	"net/url"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,11 +17,8 @@ import (
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"google.golang.org/grpc"
 )
-
-var testSamplers = []string{
-	AlwaysOff, AlwaysOn, ParentBasedAlwaysOff, ParentBasedAlwaysOn,
-}
 
 func TestNoopDefault(t *testing.T) {
 	inMem := tracetest.NewInMemoryExporter()
@@ -48,19 +42,31 @@ func TestNoopDefault(t *testing.T) {
 }
 
 func TestOtelIntegration(t *testing.T) {
-	if os.Getenv("TEST_OTEL_COLLECTOR") == "" {
-		t.Skip("Jaeger not set, skipping otel integration test")
-	}
+	grpcMethods := make(chan string)
+	collector := grpc.NewServer(grpc.UnknownServiceHandler(func(srv any, stream grpc.ServerStream) error {
+		method, _ := grpc.Method(stream.Context())
+		grpcMethods <- method
+		return nil
+	}))
+	t.Cleanup(collector.GracefulStop)
+	ln, err := net.Listen("tcp", "localhost:0")
+	assert.NoError(t, err)
+	t.Cleanup(func() {
+		ln.Close()
+	})
+	go collector.Serve(ln)
 
-	jaeger, err := url.Parse(os.Getenv("TEST_OTEL_COLLECTOR"))
+	traceEndpoint, err := url.Parse("http://" + ln.Addr().String())
 	assert.NoError(t, err)
 
 	defer test.MockVariableValue(&setting.OpenTelemetry.Resource.ServiceName, "forgejo-integration")()
-	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, jaeger)()
+	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, traceEndpoint)()
+	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Insecure, true)()
 	ctx := context.Background()
 	shutdown, err := SetupOTel(ctx)
 	assert.NoError(t, err)
 	defer shutdown(ctx)
+
 	tracer := otel.Tracer("test_jaeger")
 	_, span := tracer.Start(ctx, "test span")
 	assert.True(t, span.SpanContext().HasTraceID())
@@ -68,14 +74,12 @@ func TestOtelIntegration(t *testing.T) {
 
 	span.End()
 	// Give the exporter time to send the span
-	time.Sleep(10 * time.Second)
-	resp, err := http.Get("http://jaeger:16686/api/services")
-
-	assert.NoError(t, err)
-
-	apiResponse, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	strings.Contains(string(apiResponse), setting.OpenTelemetry.Resource.ServiceName)
+	select {
+	case method := <-grpcMethods:
+		assert.Equal(t, "/opentelemetry.proto.collector.trace.v1.TraceService/Export", method)
+	case <-time.After(10 * time.Second):
+		t.Fatal("no grpc call within 10s")
+	}
 }
 
 func TestExporter(t *testing.T) {
@@ -90,18 +94,14 @@ func TestExporter(t *testing.T) {
 	assert.NoError(t, err)
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, endpoint)()
 
-	defer test.MockProtect[string](&setting.OpenTelemetry.Traces.Sampler)()
-	for _, sampler := range testSamplers {
-		setting.OpenTelemetry.Traces.Sampler = sampler
-		ctx := context.Background()
-		shutdown, err := SetupOTel(ctx)
-		assert.NoError(t, err)
-		defer shutdown(ctx)
-		tracer := otel.Tracer("test_grpc")
+	ctx := context.Background()
+	shutdown, err := SetupOTel(ctx)
+	assert.NoError(t, err)
+	defer shutdown(ctx)
+	tracer := otel.Tracer("test_grpc")
 
-		_, span := tracer.Start(ctx, "test span")
+	_, span := tracer.Start(ctx, "test span")
 
-		assert.True(t, span.SpanContext().HasTraceID())
-		assert.True(t, span.SpanContext().HasSpanID())
-	}
+	assert.True(t, span.SpanContext().HasTraceID())
+	assert.True(t, span.SpanContext().HasSpanID())
 }

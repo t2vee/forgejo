@@ -6,16 +6,25 @@ package setting
 import (
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"code.gitea.io/gitea/modules/log"
+
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
-	opentelemetrySectionName            = "opentelemetry"
-	opentelemetryTraceSubSectionName    = "traces"
-	opentelemetryResourceSubSectionName = "resources"
+	opentelemetrySectionName            string = "opentelemetry"
+	opentelemetryTraceSubSectionName    string = "traces"
+	opentelemetryResourceSubSectionName string = "resources"
+	alwaysOn                            string = "always_on"
+	alwaysOff                           string = "always_off"
+	traceIDRatio                        string = "traceidratio"
+	parentBasedAlwaysOn                 string = "parentbased_always_on"
+	parentBasedAlwaysOff                string = "parentbased_always_off"
+	parentBasedTraceIDRatio             string = "parentbased_traceidratio"
 )
 
 // Opentelemetry settings
@@ -24,16 +33,16 @@ var (
 		Traces   traceConfig
 		Resource resourceConfig
 	}{
-		Traces:   traceConfig{Timeout: 10 * time.Second, Sampler: "parentbased_always_on", SamplerArg: "1.0"},
+		Traces:   traceConfig{Timeout: 10 * time.Second},
 		Resource: resourceConfig{ServiceName: "forgejo", EnabledDecoders: "all"},
 	}
 	samplers = []string{
-		"always_on",
-		"always_off",
-		"traceidratio",
-		"parentbased_always_on",
-		"parentbased_always_off",
-		"parentbased_traceidratio",
+		alwaysOn,
+		alwaysOff,
+		traceIDRatio,
+		parentBasedAlwaysOn,
+		parentBasedAlwaysOff,
+		parentBasedTraceIDRatio,
 	}
 )
 
@@ -43,8 +52,7 @@ type traceConfig struct {
 	Insecure          bool          // Disable TLS
 	Compression       string        // Supported value - ""/"gzip"
 	Timeout           time.Duration // The timeout value for all outgoing data
-	Sampler           string
-	SamplerArg        string
+	Sampler           sdktrace.Sampler
 	Certificate       string
 	ClientKey         string
 	ClientCertificate string
@@ -81,11 +89,15 @@ func loadTraceConfig(rootSec, traceSec ConfigSection) {
 		log.Warn("Otel trace endpoint parsing failure, disabaling traces.")
 		return
 	}
+	if OpenTelemetry.Traces.Endpoint.Scheme == "http" || OpenTelemetry.Traces.Endpoint.Scheme == "unix" {
+		OpenTelemetry.Traces.Insecure = true
+	}
 	OpenTelemetry.Traces.Insecure = traceSec.Key("INSECURE").MustBool(rootSec.Key("INSECURE").MustBool(OpenTelemetry.Traces.Insecure))
 	OpenTelemetry.Traces.Compression = traceSec.Key("COMPRESSION").In(rootSec.Key("COMPRESSION").In(OpenTelemetry.Traces.Compression, []string{"gzip"}), []string{"gzip"})
 	OpenTelemetry.Traces.Timeout = traceSec.Key("TIMEOUT").MustDuration(rootSec.Key("TIMEOUT").MustDuration(OpenTelemetry.Traces.Timeout))
-	OpenTelemetry.Traces.Sampler = traceSec.Key("SAMPLER").In(OpenTelemetry.Traces.Sampler, samplers)
-	OpenTelemetry.Traces.SamplerArg = traceSec.Key("SAMPLER_ARG").MustString(OpenTelemetry.Traces.Sampler)
+	samplerName := traceSec.Key("SAMPLER").In(parentBasedAlwaysOn, samplers)
+	samplerArg := traceSec.Key("SAMPLER_ARG").MustString("")
+	OpenTelemetry.Traces.Sampler = sampler[samplerName](samplerArg)
 	OpenTelemetry.Traces.Headers = map[string]string{}
 	headers := rootSec.Key("HEADERS").String()
 	if headers != "" {
@@ -112,6 +124,35 @@ func loadTraceConfig(rootSec, traceSec ConfigSection) {
 	if len(OpenTelemetry.Traces.ClientKey) > 0 && !filepath.IsAbs(OpenTelemetry.Traces.ClientKey) {
 		OpenTelemetry.Traces.ClientKey = filepath.Join(CustomPath, OpenTelemetry.Traces.ClientKey)
 	}
+}
+
+var sampler = map[string]func(arg string) sdktrace.Sampler{
+	alwaysOff: func(_ string) sdktrace.Sampler {
+		return sdktrace.NeverSample()
+	},
+	alwaysOn: func(_ string) sdktrace.Sampler {
+		return sdktrace.AlwaysSample()
+	},
+	traceIDRatio: func(arg string) sdktrace.Sampler {
+		ratio, err := strconv.ParseFloat(arg, 64)
+		if err != nil {
+			ratio = 1
+		}
+		return sdktrace.TraceIDRatioBased(ratio)
+	},
+	parentBasedAlwaysOff: func(arg string) sdktrace.Sampler {
+		return sdktrace.ParentBased(sdktrace.NeverSample())
+	},
+	parentBasedAlwaysOn: func(arg string) sdktrace.Sampler {
+		return sdktrace.ParentBased(sdktrace.AlwaysSample())
+	},
+	parentBasedTraceIDRatio: func(arg string) sdktrace.Sampler {
+		ratio, err := strconv.ParseFloat(arg, 64)
+		if err != nil {
+			ratio = 1
+		}
+		return sdktrace.ParentBased(sdktrace.TraceIDRatioBased(ratio))
+	},
 }
 
 // Opentelemetry SDK function port
