@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/felixge/fgprof"
 	"github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel"
 )
 
 // PIDFile could be set from build tag
@@ -157,14 +155,7 @@ func serveInstalled(ctx *cli.Context) error {
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
 	setting.MustInstalled()
-	otelShutdown, err := opentelemetry.SetupOTel(context.Background())
-	if err != nil {
-		log.Error("Telemetry setup failed with error %s", err)
-	}
-	defer func() {
-		err = errors.Join(err, otelShutdown(context.Background()))
-	}()
-	_, span := otel.Tracer("cmd/web").Start(context.Background(), "woo")
+	defer opentelemetry.Setup(ctx.Context)(ctx.Context)
 
 	showWebStartupMessage("Prepare to run web server")
 
@@ -217,11 +208,10 @@ func serveInstalled(ctx *cli.Context) error {
 			return err
 		}
 	}
-	span.End()
 
 	// Set up Chi routes
 	webRoutes := routers.NormalRoutes()
-	err = listen(webRoutes, true)
+	err := listen(webRoutes, true)
 	<-graceful.GetManager().Done()
 	log.Info("PID: %d Forgejo Web Finished", os.Getpid())
 	log.GetManager().Close()

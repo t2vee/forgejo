@@ -100,6 +100,11 @@ func TestSamplerCombinations(t *testing.T) {
 	[opentelemetry.traces]
   SAMPLER = parentbased_traceidratio
   SAMPLER_ARG = badarg`, sdktrace.ParentBased(sdktrace.TraceIDRatioBased(1))},
+		{`[opentelemetry]
+	ENDPOINT=http://localhost:4317
+	[opentelemetry.traces]
+  SAMPLER = not existing
+  SAMPLER_ARG = badarg`, sdktrace.ParentBased(sdktrace.AlwaysSample())},
 	}
 
 	for _, sampler := range testSamplers {

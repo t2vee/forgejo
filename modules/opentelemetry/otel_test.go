@@ -29,9 +29,7 @@ func TestNoopDefault(t *testing.T) {
 	}
 	defer test.MockVariableValue(&newTraceExporter, exp)()
 	ctx := context.Background()
-	shutdown, err := SetupOTel(ctx)
-	assert.NoError(t, err)
-	defer shutdown(ctx)
+	defer Setup(ctx)(ctx)
 	tracer := otel.Tracer("test_noop")
 
 	_, span := tracer.Start(ctx, "test span")
@@ -63,9 +61,7 @@ func TestOtelIntegration(t *testing.T) {
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, traceEndpoint)()
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Insecure, true)()
 	ctx := context.Background()
-	shutdown, err := SetupOTel(ctx)
-	assert.NoError(t, err)
-	defer shutdown(ctx)
+	defer Setup(ctx)(ctx)
 
 	tracer := otel.Tracer("test_jaeger")
 	_, span := tracer.Start(ctx, "test span")
@@ -95,9 +91,8 @@ func TestExporter(t *testing.T) {
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, endpoint)()
 
 	ctx := context.Background()
-	shutdown, err := SetupOTel(ctx)
+	defer Setup(ctx)(ctx)
 	assert.NoError(t, err)
-	defer shutdown(ctx)
 	tracer := otel.Tracer("test_grpc")
 
 	_, span := tracer.Start(ctx, "test span")

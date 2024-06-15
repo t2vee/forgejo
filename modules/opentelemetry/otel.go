@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 )
 
-func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err error) {
+func Setup(ctx context.Context) (shutdown func(context.Context)) {
 	// Redirect otel logger to write to common forgejo log at info
 	logWrap := funcr.New(func(prefix, args string) {
 		log.Info(fmt.Sprint(prefix, args))
@@ -29,34 +29,31 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 
 	var shutdownFuncs []func(context.Context) error
 
-	shutdown = func(ctx context.Context) error {
+	shutdown = func(ctx context.Context) {
 		var err error
 		for _, fn := range shutdownFuncs {
 			err = errors.Join(err, fn(ctx))
 		}
 		shutdownFuncs = nil
-		return err
-	}
-
-	handleErr := func(inErr error) {
-		err = errors.Join(inErr, shutdown(ctx))
 	}
 
 	otel.SetTextMapPropagator(newPropagator())
 
 	res, err := newResource(ctx)
 	if err != nil {
-		return shutdown, err
+		return shutdown
 	}
 
 	traceShutdown, err := setupTraceProvider(ctx, res)
 	if err != nil {
-		handleErr(err)
-		return shutdown, err
+		log.Warn("OpenTelemetry trace setup failed, shutting trace exporter down, err=%s", err)
+		if err := traceShutdown(ctx); err != nil {
+			log.Warn("OpenTelemetry trace exporter shutdown failed, err=%s", err)
+		}
 	}
 
 	shutdownFuncs = append(shutdownFuncs, traceShutdown)
-	return shutdown, nil
+	return shutdown
 }
 
 func newPropagator() propagation.TextMapPropagator {
