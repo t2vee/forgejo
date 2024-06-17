@@ -3,7 +3,6 @@ package opentelemetry
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 
 	"code.gitea.io/gitea/modules/setting"
 
@@ -29,9 +28,9 @@ var newTraceExporter = func(ctx context.Context) (sdktrace.SpanExporter, error) 
 	if setting.OpenTelemetry.Traces.Compression != "" {
 		opts = append(opts, otlptracegrpc.WithCompressor(setting.OpenTelemetry.Traces.Compression))
 	}
-	withCertPool(setting.OpenTelemetry.Traces.Certificate, func(cp *x509.CertPool) { tlsConf.RootCAs = cp })
-	WithClientCert(setting.OpenTelemetry.Traces.ClientCertificate, setting.OpenTelemetry.Traces.ClientKey, func(c tls.Certificate) { tlsConf.Certificates = []tls.Certificate{c} })
-	if tlsConf.RootCAs == nil && len(tlsConf.Certificates) > 0 {
+	withCertPool(setting.OpenTelemetry.Traces.Certificate, tlsConf)
+	WithClientCert(setting.OpenTelemetry.Traces.ClientCertificate, setting.OpenTelemetry.Traces.ClientKey, tlsConf)
+	if tlsConf.RootCAs != nil || len(tlsConf.Certificates) > 0 {
 		opts = append(opts, otlptracegrpc.WithTLSCredentials(
 			credentials.NewTLS(tlsConf),
 		))

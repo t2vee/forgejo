@@ -25,7 +25,9 @@ func Setup(ctx context.Context) (shutdown func(context.Context)) {
 	}, funcr.Options{})
 	otel.SetLogger(logWrap)
 	// Redirect error handling to forgejo log as well
-	otel.SetErrorHandler(otelErrorHandler{})
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(cause error) {
+		log.Error("internal opentelemetry error was raised: %s", cause)
+	}))
 
 	var shutdownFuncs []func(context.Context) error
 
@@ -63,21 +65,7 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-type otelErrorHandler struct{}
-
-func (o otelErrorHandler) Handle(err error) {
-	log.Error("internal opentelemetry error was raised: %s", err)
-}
-
-func createCertPool(certBytes []byte) (*x509.CertPool, error) {
-	cp := x509.NewCertPool()
-	if ok := cp.AppendCertsFromPEM(certBytes); !ok {
-		return nil, errors.New("failed to append certificate to the cert pool")
-	}
-	return cp, nil
-}
-
-func withCertPool(path string, fn func(*x509.CertPool)) {
+func withCertPool(path string, tlsConf *tls.Config) {
 	if path == "" {
 		return
 	}
@@ -86,15 +74,15 @@ func withCertPool(path string, fn func(*x509.CertPool)) {
 		log.Warn("Otel: reading ca cert failed path=%s, err=%s", path, err)
 		return
 	}
-	c, err := createCertPool(b)
-	if err != nil {
-		log.Warn("Otel: create cert pool failed")
+	cp := x509.NewCertPool()
+	if ok := cp.AppendCertsFromPEM(b); !ok {
+		log.Warn("Otel: no valid PEM certificate found path=%s", path)
 		return
 	}
-	fn(c)
+	tlsConf.RootCAs = cp
 }
 
-func WithClientCert(nc, nk string, fn func(tls.Certificate)) {
+func WithClientCert(nc, nk string, tlsConf *tls.Config) {
 	if nc == "" || nk == "" {
 		return
 	}
@@ -115,5 +103,5 @@ func WithClientCert(nc, nk string, fn func(tls.Certificate)) {
 		return
 	}
 
-	fn(crt)
+	tlsConf.Certificates = append(tlsConf.Certificates, crt)
 }

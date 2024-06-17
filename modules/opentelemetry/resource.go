@@ -5,7 +5,6 @@ package opentelemetry
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -25,11 +24,13 @@ const (
 )
 
 func newResource(ctx context.Context) (*resource.Resource, error) {
-	opts := []resource.Option{resource.WithDetectors(fromSettings{})}
-
+	opts := []resource.Option{
+		resource.WithAttributes(parseSettingAttributes(setting.OpenTelemetry.Resource.Attributes)...),
+	}
 	opts = append(opts, parseDecoderOpts()...)
 	opts = append(opts, resource.WithAttributes(
-		semconv.ServiceName(setting.OpenTelemetry.Resource.ServiceName), semconv.ServiceVersion(setting.ForgejoVersion),
+		semconv.ServiceName(setting.OpenTelemetry.Resource.ServiceName),
+		semconv.ServiceVersion(setting.ForgejoVersion),
 	))
 	return resource.New(ctx, opts...)
 }
@@ -59,17 +60,15 @@ func parseDecoderOpts() []resource.Option {
 	return opts
 }
 
-type fromSettings struct{}
-
-func (fromSettings) Detect(context.Context) (*resource.Resource, error) {
-	rawAttrs := strings.TrimSpace(setting.OpenTelemetry.Resource.Attributes)
+func parseSettingAttributes(s string) []attribute.KeyValue {
+	var attrs []attribute.KeyValue
+	rawAttrs := strings.TrimSpace(string(s))
 
 	if rawAttrs == "" {
-		return resource.Empty(), nil
+		return attrs
 	}
 
 	pairs := strings.Split(rawAttrs, ",")
-	var attrs []attribute.KeyValue
 
 	var invalid []string
 	for _, p := range pairs {
@@ -88,12 +87,9 @@ func (fromSettings) Detect(context.Context) (*resource.Resource, error) {
 		}
 		attrs = append(attrs, attribute.String(key, val))
 	}
-	var err error
 	if len(invalid) > 0 {
-		err = fmt.Errorf("%s: %v", "Partial resource: missing values", invalid)
+		log.Warn("%s: %v", "Partial resource: missing values", invalid)
 	}
 
-	res := resource.NewSchemaless(attrs...)
-
-	return res, err
+	return attrs
 }

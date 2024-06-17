@@ -36,14 +36,7 @@ var (
 		Traces:   traceConfig{Timeout: 10 * time.Second},
 		Resource: resourceConfig{ServiceName: "forgejo", EnabledDecoders: "all"},
 	}
-	samplers = []string{
-		alwaysOn,
-		alwaysOff,
-		traceIDRatio,
-		parentBasedAlwaysOn,
-		parentBasedAlwaysOff,
-		parentBasedTraceIDRatio,
-	}
+	compressions = []string{"gzip", ""}
 )
 
 type traceConfig struct {
@@ -85,16 +78,23 @@ func loadTraceConfig(rootSec, traceSec ConfigSection) {
 	endpoint := traceSec.Key("ENDPOINT").MustString(rootSec.Key("ENDPOINT").String())
 	if ep, err := url.Parse(endpoint); err == nil && ep.Host != "" {
 		OpenTelemetry.Traces.Endpoint = ep
+	} else if err != nil {
+		log.Warn("Otel trace endpoint parsing failure, err=%s", err)
+		return
 	} else {
-		log.Warn("Otel trace endpoint parsing failure, disabaling traces.")
+		log.Warn("Otel trace endpoint parsing failure, no host was detected")
 		return
 	}
 	if OpenTelemetry.Traces.Endpoint.Scheme == "http" || OpenTelemetry.Traces.Endpoint.Scheme == "unix" {
 		OpenTelemetry.Traces.Insecure = true
 	}
 	OpenTelemetry.Traces.Insecure = traceSec.Key("INSECURE").MustBool(rootSec.Key("INSECURE").MustBool(OpenTelemetry.Traces.Insecure))
-	OpenTelemetry.Traces.Compression = traceSec.Key("COMPRESSION").In(rootSec.Key("COMPRESSION").In(OpenTelemetry.Traces.Compression, []string{"gzip"}), []string{"gzip"})
+	OpenTelemetry.Traces.Compression = traceSec.Key("COMPRESSION").In(rootSec.Key("COMPRESSION").In(OpenTelemetry.Traces.Compression, compressions), compressions)
 	OpenTelemetry.Traces.Timeout = traceSec.Key("TIMEOUT").MustDuration(rootSec.Key("TIMEOUT").MustDuration(OpenTelemetry.Traces.Timeout))
+	samplers := make([]string, 0, len(sampler))
+	for k := range sampler {
+		samplers = append(samplers, k)
+	}
 	samplerName := traceSec.Key("SAMPLER").In(parentBasedAlwaysOn, samplers)
 	samplerArg := traceSec.Key("SAMPLER_ARG").MustString("")
 	OpenTelemetry.Traces.Sampler = sampler[samplerName](samplerArg)
