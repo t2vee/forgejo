@@ -29,7 +29,7 @@ var newTraceExporter = func(ctx context.Context) (sdktrace.SpanExporter, error) 
 		opts = append(opts, otlptracegrpc.WithCompressor(setting.OpenTelemetry.Traces.Compression))
 	}
 	withCertPool(setting.OpenTelemetry.Traces.Certificate, tlsConf)
-	WithClientCert(setting.OpenTelemetry.Traces.ClientCertificate, setting.OpenTelemetry.Traces.ClientKey, tlsConf)
+	withClientCert(setting.OpenTelemetry.Traces.ClientCertificate, setting.OpenTelemetry.Traces.ClientKey, tlsConf)
 	if tlsConf.RootCAs != nil || len(tlsConf.Certificates) > 0 {
 		opts = append(opts, otlptracegrpc.WithTLSCredentials(
 			credentials.NewTLS(tlsConf),

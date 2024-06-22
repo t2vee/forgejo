@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"os"
 
@@ -32,9 +31,10 @@ func Setup(ctx context.Context) (shutdown func(context.Context)) {
 	var shutdownFuncs []func(context.Context) error
 
 	shutdown = func(ctx context.Context) {
-		var err error
 		for _, fn := range shutdownFuncs {
-			err = errors.Join(err, fn(ctx))
+			if err := fn(ctx); err != nil {
+				log.Warn("exporter shutdown failed, err=%s", err)
+			}
 		}
 		shutdownFuncs = nil
 	}
@@ -48,13 +48,11 @@ func Setup(ctx context.Context) (shutdown func(context.Context)) {
 
 	traceShutdown, err := setupTraceProvider(ctx, res)
 	if err != nil {
-		log.Warn("OpenTelemetry trace setup failed, shutting trace exporter down, err=%s", err)
-		if err := traceShutdown(ctx); err != nil {
-			log.Warn("OpenTelemetry trace exporter shutdown failed, err=%s", err)
-		}
+		log.Warn("OpenTelemetry trace setup failed, err=%s", err)
+	} else {
+		shutdownFuncs = append(shutdownFuncs, traceShutdown)
 	}
 
-	shutdownFuncs = append(shutdownFuncs, traceShutdown)
 	return shutdown
 }
 
@@ -82,7 +80,7 @@ func withCertPool(path string, tlsConf *tls.Config) {
 	tlsConf.RootCAs = cp
 }
 
-func WithClientCert(nc, nk string, tlsConf *tls.Config) {
+func withClientCert(nc, nk string, tlsConf *tls.Config) {
 	if nc == "" || nk == "" {
 		return
 	}

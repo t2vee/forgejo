@@ -155,7 +155,7 @@ func serveInstalled(ctx *cli.Context) error {
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
 	setting.MustInstalled()
-	defer opentelemetry.Setup(ctx.Context)(ctx.Context)
+	defer opentelemetry.Setup(context.Background())(context.Background())
 
 	showWebStartupMessage("Prepare to run web server")
 
