@@ -90,7 +90,7 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/quasoft/websspi v1.1.2
 	github.com/redis/go-redis/v9 v9.5.2
-	github.com/riandyrn/otelchi v0.5.2
+	github.com/riandyrn/otelchi v0.8.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sassoftware/go-rpmutils v0.2.1-0.20240124161140-277b154961dd
@@ -292,7 +292,6 @@ require (
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	go.etcd.io/bbolt v1.3.9 // indirect
 	go.mongodb.org/mongo-driver v1.13.1 // indirect
-	go.opentelemetry.io/contrib v1.0.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.26.0 // indirect
 	go.opentelemetry.io/otel/metric v1.26.0 // indirect
 	go.opentelemetry.io/otel/trace v1.26.0 // indirect

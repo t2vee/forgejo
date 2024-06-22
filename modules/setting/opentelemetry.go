@@ -140,10 +140,10 @@ var sampler = map[string]func(arg string) sdktrace.Sampler{
 		}
 		return sdktrace.TraceIDRatioBased(ratio)
 	},
-	parentBasedAlwaysOff: func(arg string) sdktrace.Sampler {
+	parentBasedAlwaysOff: func(_ string) sdktrace.Sampler {
 		return sdktrace.ParentBased(sdktrace.NeverSample())
 	},
-	parentBasedAlwaysOn: func(arg string) sdktrace.Sampler {
+	parentBasedAlwaysOn: func(_ string) sdktrace.Sampler {
 		return sdktrace.ParentBased(sdktrace.AlwaysSample())
 	},
 	parentBasedTraceIDRatio: func(arg string) sdktrace.Sampler {

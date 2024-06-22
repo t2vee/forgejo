@@ -62,7 +62,7 @@ func parseDecoderOpts() []resource.Option {
 
 func parseSettingAttributes(s string) []attribute.KeyValue {
 	var attrs []attribute.KeyValue
-	rawAttrs := strings.TrimSpace(string(s))
+	rawAttrs := strings.TrimSpace(s)
 
 	if rawAttrs == "" {
 		return attrs
