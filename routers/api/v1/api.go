@@ -1553,6 +1553,14 @@ func Routes() *web.Route {
 			m.Group("/runners", func() {
 				m.Get("/registration-token", admin.GetRegistrationToken)
 			})
+			m.Group("/quota", func() {
+				m.Group("/groups", func() {
+					m.Combo("").Get(admin.ListQuotaGroups).
+						Post(bind(api.CreateQuotaGroupOption{}), admin.CreateQuotaGroup)
+					m.Combo("/{name}").Get(admin.GetQuotaGroup).
+						Delete(admin.DeleteQuotaGroup)
+				})
+			})
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), reqToken(), reqSiteAdmin())
 
 		m.Group("/topics", func() {

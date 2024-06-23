@@ -7,7 +7,95 @@ import (
 	"context"
 
  	"code.gitea.io/gitea/models/db"
+	api "code.gitea.io/gitea/modules/structs"
 )
+
+type QuotaKind int
+
+const (
+	QuotaKindUser QuotaKind = iota
+)
+
+type QuotaGroup struct {
+	ID int64 `xorm:"pk autoincr"`
+	Name string `xorm:"UNIQUE NOT NULL"`
+	LimitGit int64
+	LimitFiles int64
+}
+
+type QuotaMapping struct {
+	ID int64 `xorm:"pk autoincr"`
+	Kind QuotaKind
+	MappedID int64
+	QuotaGroupID int64
+}
+
+func init() {
+	db.RegisterModel(new(QuotaGroup))
+	db.RegisterModel(new(QuotaMapping))
+}
+
+func ListQuotaGroups(ctx context.Context) (*[]QuotaGroup, error) {
+	var groups []QuotaGroup
+	err := db.GetEngine(ctx).Find(&groups)
+	return &groups, err
+}
+
+func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) (error) {
+	group := QuotaGroup{
+		Name: opts.Name,
+		LimitGit: opts.LimitGit,
+		LimitFiles: opts.LimitFiles,
+	}
+	_, err := db.GetEngine(ctx).Insert(group)
+	return err
+}
+
+func GetQuotaGroupByName(ctx context.Context, name string) (*QuotaGroup, error) {
+	var group QuotaGroup
+	has, err := db.GetEngine(ctx).Where("name = ?", name).Get(&group)
+	if has {
+		return &group, nil
+	}
+	return nil, err
+}
+
+func IsQuotaGroupInUse(ctx context.Context, name string) (bool) {
+	var inuse bool
+
+	group, err := GetQuotaGroupByName(ctx, name)
+	if err != nil || group == nil {
+		return false
+	}
+
+	_, err = db.GetEngine(ctx).Select("true").
+		Table("quota_mapping").
+		Where("`quota_mapping`.quota_group_id = ?", group.ID).
+		Get(&inuse)
+	if err != nil {
+		return false
+	}
+	return inuse
+}
+
+func DeleteQuotaGroupByName(ctx context.Context, name string) (error) {
+	_, err := db.GetEngine(ctx).Where("name = ?", name).Delete(QuotaGroup{})
+	return err
+}
+
+func GetQuotaGroupForUser(ctx context.Context, userID int64) (*QuotaGroup, error) {
+	var group QuotaGroup
+	_, err := db.GetEngine(ctx).Select("`quota_group`.*").
+		Table("quota_group").
+		Join("INNER", "`quota_mapping`", "`quota_mapping`.mapped_id = `quota_group`.id").
+		Where("`quota_mapping`.kind = ? AND `quota_mapping`.mapped_id = ?", QuotaKindUser, userID).
+		Get(&group);
+	if err != nil {
+		return nil, err
+	}
+
+	return &group, nil
+}
 
 func GetGitUseForUser(ctx context.Context, userID int64) (int64, error) {
 	var size int64

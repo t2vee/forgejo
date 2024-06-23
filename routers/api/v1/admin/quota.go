@@ -8,8 +8,64 @@ import (
 
 	quota_model "code.gitea.io/gitea/models/quota"
 	api "code.gitea.io/gitea/modules/structs"
+	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/context"
 )
+
+// ListQuotaGroups returns all the quota groups
+func ListQuotaGroups(ctx *context.APIContext) {
+	groups, err := quota_model.ListQuotaGroups(ctx)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "ListQuotaGroups", err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, groups)
+}
+
+func CreateQuotaGroup(ctx *context.APIContext) {
+	form := web.GetForm(ctx).(*api.CreateQuotaGroupOption)
+
+	err := quota_model.CreateQuotaGroup(ctx, *form)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "CreateQuotaGroup", err)
+		return
+	}
+	ctx.Status(http.StatusCreated)
+}
+
+func DeleteQuotaGroup(ctx *context.APIContext) {
+	name := ctx.Params("name")
+
+	if quota_model.IsQuotaGroupInUse(ctx, name) {
+		ctx.Error(http.StatusUnprocessableEntity, "DeleteQuotaGroup", "cannot delete quota group that is in use")
+		return
+	}
+
+	err := quota_model.DeleteQuotaGroupByName(ctx, name)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "DeleteQuotaGroup", err)
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+func GetQuotaGroup(ctx *context.APIContext) {
+	name := ctx.Params("name")
+
+	group, err := quota_model.GetQuotaGroupByName(ctx, name)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetQuotaGroup", err)
+		return
+	}
+
+	if group == nil {
+		ctx.Error(http.StatusNotFound, "GetQuotaGroup", "quota group not found")
+		return
+	}
+	ctx.JSON(http.StatusOK, group)
+}
 
 // GetUserQuota return information about a user's quota
 func GetUserQuota(ctx *context.APIContext) {
@@ -45,9 +101,26 @@ func GetUserQuota(ctx *context.APIContext) {
 		return
 	}
 
-	userQuota := api.UserQuota{
-		GitUse: gitUse,
-		FileUse: fileUse,
+	limits, err := quota_model.GetQuotaGroupForUser(ctx, ctx.ContextUser.ID)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetUserQuota", err)
+		return
+	}
+
+	var userQuota api.UserQuota
+	if limits != nil {
+		userQuota = api.UserQuota{
+			GitLimit: limits.LimitGit,
+			GitUse: gitUse,
+			FileLimit: limits.LimitFiles,
+			FileUse: fileUse,
+			Group: limits.Name,
+		}
+	} else {
+		userQuota = api.UserQuota{
+			GitUse: gitUse,
+			FileUse: fileUse,
+		}
 	}
 	ctx.JSON(http.StatusOK, &userQuota)
 }
