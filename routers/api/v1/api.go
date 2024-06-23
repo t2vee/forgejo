@@ -1174,9 +1174,9 @@ func Routes() *web.Route {
 							Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteRelease)
 						m.Group("/assets", func() {
 							m.Combo("").Get(repo.ListReleaseAttachments).
-								Post(reqToken(), reqRepoWriter(unit.TypeReleases), repo.CreateReleaseAttachment)
+								Post(reqToken(), reqRepoWriter(unit.TypeReleases), context.EnforceFilesQuotaAPI(), repo.CreateReleaseAttachment)
 							m.Combo("/{attachment_id}").Get(repo.GetReleaseAttachment).
-								Patch(reqToken(), reqRepoWriter(unit.TypeReleases), bind(api.EditAttachmentOptions{}), repo.EditReleaseAttachment).
+								Patch(reqToken(), reqRepoWriter(unit.TypeReleases), bind(api.EditAttachmentOptions{}), context.EnforceFilesQuotaAPI(), repo.EditReleaseAttachment).
 								Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteReleaseAttachment)
 						})
 					})
@@ -1267,11 +1267,11 @@ func Routes() *web.Route {
 				m.Post("/diffpatch", reqRepoWriter(unit.TypeCode), reqToken(), bind(api.ApplyDiffPatchFileOptions{}), mustNotBeArchived, repo.ApplyDiffPatch)
 				m.Group("/contents", func() {
 					m.Get("", repo.GetContentsList)
-					m.Post("", reqToken(), bind(api.ChangeFilesOptions{}), reqRepoBranchWriter, mustNotBeArchived, repo.ChangeFiles)
+					m.Post("", reqToken(), bind(api.ChangeFilesOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceGitQuotaAPI(), repo.ChangeFiles)
 					m.Get("/*", repo.GetContents)
 					m.Group("/*", func() {
-						m.Post("", bind(api.CreateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, repo.CreateFile)
-						m.Put("", bind(api.UpdateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, repo.UpdateFile)
+						m.Post("", bind(api.CreateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceGitQuotaAPI(), repo.CreateFile)
+						m.Put("", bind(api.UpdateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceGitQuotaAPI(), repo.UpdateFile)
 						m.Delete("", bind(api.DeleteFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, repo.DeleteFile)
 					}, reqToken())
 				}, reqRepoReader(unit.TypeCode))
@@ -1329,10 +1329,10 @@ func Routes() *web.Route {
 							m.Group("/assets", func() {
 								m.Combo("").
 									Get(repo.ListIssueCommentAttachments).
-									Post(reqToken(), mustNotBeArchived, repo.CreateIssueCommentAttachment)
+									Post(reqToken(), mustNotBeArchived, context.EnforceFilesQuotaAPI(), repo.CreateIssueCommentAttachment)
 								m.Combo("/{attachment_id}").
 									Get(repo.GetIssueCommentAttachment).
-									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), repo.EditIssueCommentAttachment).
+									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceFilesQuotaAPI(), repo.EditIssueCommentAttachment).
 									Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueCommentAttachment)
 							}, mustEnableAttachments)
 						}, commentAssignment(":id"))
@@ -1381,10 +1381,10 @@ func Routes() *web.Route {
 						m.Group("/assets", func() {
 							m.Combo("").
 								Get(repo.ListIssueAttachments).
-								Post(reqToken(), mustNotBeArchived, repo.CreateIssueAttachment)
+								Post(reqToken(), mustNotBeArchived, context.EnforceFilesQuotaAPI(), repo.CreateIssueAttachment)
 							m.Combo("/{attachment_id}").
 								Get(repo.GetIssueAttachment).
-								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), repo.EditIssueAttachment).
+								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceFilesQuotaAPI(), repo.EditIssueAttachment).
 								Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueAttachment)
 						}, mustEnableAttachments)
 						m.Combo("/dependencies").
