@@ -5,9 +5,11 @@ package setting
 
 // Quota settings
 var Quota = struct {
-	Enabled bool `ini:"ENABLED"`
+	Enabled      bool   `ini:"ENABLED"`
+	DefaultGroup string `ini:"DEFAULT_GROUP"`
 }{
-	Enabled: false,
+	Enabled:      false,
+	DefaultGroup: "",
 }
 
 func loadQuotaFrom(rootCfg ConfigProvider) {

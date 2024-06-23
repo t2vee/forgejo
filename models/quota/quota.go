@@ -8,6 +8,7 @@ import (
 
 	"code.gitea.io/gitea/models/db"
 	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
 )
 
@@ -115,13 +116,23 @@ func DeleteQuotaGroupByName(ctx context.Context, name string) error {
 
 func GetQuotaGroupForUser(ctx context.Context, userID int64) (*QuotaGroup, error) {
 	var group QuotaGroup
-	_, err := db.GetEngine(ctx).Select("`quota_group`.*").
+	has, err := db.GetEngine(ctx).Select("`quota_group`.*").
 		Table("quota_group").
 		Join("INNER", "`quota_mapping`", "`quota_mapping`.mapped_id = `quota_group`.id").
 		Where("`quota_mapping`.kind = ? AND `quota_mapping`.mapped_id = ?", QuotaKindUser, userID).
 		Get(&group)
 	if err != nil {
 		return nil, err
+	}
+
+	if !has {
+		has, err = db.GetEngine(ctx).Where("name = ?", setting.Quota.DefaultGroup).Get(&group)
+		if err != nil {
+			return nil, err
+		}
+		if !has {
+			return nil, nil
+		}
 	}
 
 	return &group, nil
