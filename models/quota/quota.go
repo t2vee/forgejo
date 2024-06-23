@@ -32,6 +32,11 @@ type QuotaMapping struct {
 	QuotaGroupID int64
 }
 
+type QuotaLimits struct {
+	LimitGit   int64
+	LimitFiles int64
+}
+
 func init() {
 	db.RegisterModel(new(QuotaGroup))
 	db.RegisterModel(new(QuotaMapping))
@@ -136,6 +141,24 @@ func GetQuotaGroupForUser(ctx context.Context, userID int64) (*QuotaGroup, error
 	}
 
 	return &group, nil
+}
+
+func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, error) {
+	group, err := GetQuotaGroupForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	limits := QuotaLimits{
+		LimitGit:   -1,
+		LimitFiles: -1,
+	}
+	if group != nil {
+		limits = QuotaLimits{
+			LimitGit:   group.LimitGit,
+			LimitFiles: group.LimitFiles,
+		}
+	}
+	return &limits, nil
 }
 
 func GetGitUseForUser(ctx context.Context, userID int64) (int64, error) {

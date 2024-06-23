@@ -892,6 +892,9 @@ func Routes() *web.Route {
 		// Users (requires user scope)
 		m.Group("/user", func() {
 			m.Get("", user.GetAuthenticatedUser)
+			if setting.Quota.Enabled {
+				m.Get("/quota", user.GetQuota)
+			}
 			m.Group("/settings", func() {
 				m.Get("", user.GetUserSettings)
 				m.Patch("", bind(api.UserSettingsOptions{}), user.UpdateUserSettings)
