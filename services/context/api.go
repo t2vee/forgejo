@@ -13,6 +13,7 @@ import (
 
 	issues_model "code.gitea.io/gitea/models/issues"
 	"code.gitea.io/gitea/models/unit"
+	quota_model "code.gitea.io/gitea/models/quota"
 	user_model "code.gitea.io/gitea/models/user"
 	mc "code.gitea.io/gitea/modules/cache"
 	"code.gitea.io/gitea/modules/git"
@@ -42,6 +43,7 @@ type APIContext struct {
 	Comment *issues_model.Comment
 	Org     *APIOrganization
 	Package *Package
+	QuotaGroup *quota_model.QuotaGroup
 }
 
 func init() {

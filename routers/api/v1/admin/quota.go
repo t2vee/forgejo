@@ -7,9 +7,11 @@ import (
 	"net/http"
 
 	quota_model "code.gitea.io/gitea/models/quota"
+	user_model "code.gitea.io/gitea/models/user"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/context"
+	"code.gitea.io/gitea/services/convert"
 )
 
 // ListQuotaGroups returns all the quota groups
@@ -20,7 +22,7 @@ func ListQuotaGroups(ctx *context.APIContext) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, groups)
+	ctx.JSON(http.StatusOK, convert.ToQuotaGroupList(ctx, groups))
 }
 
 func CreateQuotaGroup(ctx *context.APIContext) {
@@ -35,21 +37,28 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 }
 
 func ListUsersInQuotaGroup(ctx *context.APIContext) {
-	group := ctx.Params("name")
-
-	users, err := quota_model.ListUsersInQuotaGroup(ctx, group)
+	users, err := quota_model.ListUsersInQuotaGroup(ctx, ctx.QuotaGroup.Name)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "ListUsersInQuotaGroup", err)
 		return
 	}
-	ctx.JSON(http.StatusOK, users)
+	ctx.JSON(http.StatusOK, convert.ToUsers(ctx, ctx.Doer, users))
 }
 
 func AddUserToQuotaGroup(ctx *context.APIContext) {
-	group := ctx.Params("name")
-	//username := ctx.Params("username")
+	form := web.GetForm(ctx).(*api.QuotaGroupAddOrRemoveUserOption)
 
-	err := quota_model.AddUserToQuotaGroup(ctx, group, 1)
+	user, err := user_model.GetUserByName(ctx, form.Username)
+	if err != nil {
+		if user_model.IsErrUserNotExist(err) {
+			ctx.NotFound("GetUserByName", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+		}
+		return
+	}
+
+	err = ctx.QuotaGroup.AddUserByID(ctx, user.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "AddUserToQuotaGroup", err)
 		return
@@ -57,15 +66,34 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 	ctx.Status(http.StatusCreated)
 }
 
-func DeleteQuotaGroup(ctx *context.APIContext) {
-	name := ctx.Params("name")
+func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
+	form := web.GetForm(ctx).(*api.QuotaGroupAddOrRemoveUserOption)
 
-	if quota_model.IsQuotaGroupInUse(ctx, name) {
+	user, err := user_model.GetUserByName(ctx, form.Username)
+	if err != nil {
+		if user_model.IsErrUserNotExist(err) {
+			ctx.NotFound("GetUserByName", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+		}
+		return
+	}
+
+	err = ctx.QuotaGroup.RemoveUserByID(ctx, user.ID)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "RemoveUserFromQuotaGroup", err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+func DeleteQuotaGroup(ctx *context.APIContext) {
+	if quota_model.IsQuotaGroupInUse(ctx, ctx.QuotaGroup.Name) {
 		ctx.Error(http.StatusUnprocessableEntity, "DeleteQuotaGroup", "cannot delete quota group that is in use")
 		return
 	}
 
-	err := quota_model.DeleteQuotaGroupByName(ctx, name)
+	err := quota_model.DeleteQuotaGroupByName(ctx, ctx.QuotaGroup.Name)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "DeleteQuotaGroup", err)
 		return
@@ -75,19 +103,7 @@ func DeleteQuotaGroup(ctx *context.APIContext) {
 }
 
 func GetQuotaGroup(ctx *context.APIContext) {
-	name := ctx.Params("name")
-
-	group, err := quota_model.GetQuotaGroupByName(ctx, name)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetQuotaGroup", err)
-		return
-	}
-
-	if group == nil {
-		ctx.Error(http.StatusNotFound, "GetQuotaGroup", "quota group not found")
-		return
-	}
-	ctx.JSON(http.StatusOK, group)
+	ctx.JSON(http.StatusOK, convert.ToQuotaGroup(ctx, ctx.QuotaGroup))
 }
 
 // GetUserQuota return information about a user's quota

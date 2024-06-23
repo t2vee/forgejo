@@ -1,6 +1,6 @@
 // Copyright 2015 The Gogs Authors. All rights reserved.
 // Copyright 2016 The Gitea Authors. All rights reserved.
-// Copyright 2023 The Forgejo Authors. All rights reserved.
+// Copyright 2023-2024 The Forgejo Authors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
 // Package v1 Gitea API
@@ -1557,14 +1557,13 @@ func Routes() *web.Route {
 				m.Group("/groups", func() {
 					m.Combo("").Get(admin.ListQuotaGroups).
 						Post(bind(api.CreateQuotaGroupOption{}), admin.CreateQuotaGroup)
-					m.Group("/{name}", func() {
+					m.Group("/{quotagroup}", func() {
 						m.Combo("").Get(admin.GetQuotaGroup).
 							Delete(admin.DeleteQuotaGroup)
-						m.Group("/users", func() {
-							m.Get("", admin.ListUsersInQuotaGroup)
-							m.Post("/{username}", admin.AddUserToQuotaGroup)
-						})
-					})
+						m.Combo("/users").Get(admin.ListUsersInQuotaGroup).
+							Post(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.AddUserToQuotaGroup).
+							Delete(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.RemoveUserFromQuotaGroup)
+					}, context.QuotaGroupAssignmentAPI())
 				})
 			})
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), reqToken(), reqSiteAdmin())

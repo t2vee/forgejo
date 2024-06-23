@@ -36,10 +36,10 @@ func init() {
 	db.RegisterModel(new(QuotaMapping))
 }
 
-func ListQuotaGroups(ctx context.Context) (*[]QuotaGroup, error) {
-	var groups []QuotaGroup
+func ListQuotaGroups(ctx context.Context) ([]*QuotaGroup, error) {
+	var groups []*QuotaGroup
 	err := db.GetEngine(ctx).Find(&groups)
-	return &groups, err
+	return groups, err
 }
 
 func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) (error) {
@@ -52,35 +52,32 @@ func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) (err
 	return err
 }
 
-func ListUsersInQuotaGroup(ctx context.Context, name string) (*[]user_model.User, error) {
+func ListUsersInQuotaGroup(ctx context.Context, name string) ([]*user_model.User, error) {
 	group, err := GetQuotaGroupByName(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 
-	var users []user_model.User
+	var users []*user_model.User
 	err = db.GetEngine(ctx).Select("`user`.*").
 		Table("user").
 		Join("INNER", "`quota_mapping`", "`quota_mapping`.mapped_id = `user`.id").
 		Where("`quota_mapping`.kind = ? AND `quota_mapping`.quota_group_id = ?", QuotaKindUser, group.ID).
 		Find(&users)
-	return &users, err
+	return users, err
 }
 
-func AddUserToQuotaGroup(ctx context.Context, name string, userID int64) (error) {
-	group, err := GetQuotaGroupByName(ctx, name)
-	if err != nil {
-		return err
-	}
-	// if group == nil {
-	// 	return "group not found"
-	// }
-
-	_, err = db.GetEngine(ctx).Insert(&QuotaMapping{
+func (qg *QuotaGroup) AddUserByID(ctx context.Context, userID int64) error {
+	_, err := db.GetEngine(ctx).Insert(&QuotaMapping{
 		Kind: QuotaKindUser,
 		MappedID: userID,
-		QuotaGroupID: group.ID,
+		QuotaGroupID: qg.ID,
 	})
+	return err
+}
+
+func (qg *QuotaGroup) RemoveUserByID(ctx context.Context, userID int64) error {
+	_, err := db.GetEngine(ctx).Where("kind = ? AND mapped_id = ?", QuotaKindUser, userID).Delete(QuotaMapping{})
 	return err
 }
 
