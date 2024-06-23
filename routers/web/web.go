@@ -1139,7 +1139,7 @@ func registerRoutes(m *web.Route) {
 	m.Group("/{username}/{reponame}", func() {
 		if !setting.Repository.DisableForks {
 			m.Combo("/fork", reqRepoCodeReader).Get(repo.Fork).
-				Post(web.Bind(forms.CreateRepoForm{}), repo.ForkPost)
+				Post(web.Bind(forms.CreateRepoForm{}), context.EnforceGitQuotaWeb(), repo.ForkPost)
 		}
 		m.Group("/issues", func() {
 			m.Group("/new", func() {
@@ -1195,7 +1195,7 @@ func registerRoutes(m *web.Route) {
 			m.Post("/status", reqRepoIssuesOrPullsWriter, repo.UpdateIssueStatus)
 			m.Post("/delete", reqRepoAdmin, repo.BatchDeleteIssues)
 			m.Post("/resolve_conversation", reqRepoIssuesOrPullsReader, repo.SetShowOutdatedComments, repo.UpdateResolveConversation)
-			m.Post("/attachments", repo.UploadIssueAttachment)
+			m.Post("/attachments", context.EnforceFilesQuotaWeb(), repo.UploadIssueAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 			m.Delete("/unpin/{index}", reqRepoAdmin, repo.IssueUnpin)
 			m.Post("/move_pin", reqRepoAdmin, repo.IssuePinMove)
@@ -1229,23 +1229,23 @@ func registerRoutes(m *web.Route) {
 
 		m.Group("", func() {
 			m.Group("", func() {
-				m.Combo("/_edit/*").Get(repo.EditFile).
+				m.Combo("/_edit/*", context.EnforceGitQuotaWeb()).Get(repo.EditFile).
 					Post(web.Bind(forms.EditRepoFileForm{}), repo.EditFilePost)
-				m.Combo("/_new/*").Get(repo.NewFile).
+				m.Combo("/_new/*", context.EnforceGitQuotaWeb()).Get(repo.NewFile).
 					Post(web.Bind(forms.EditRepoFileForm{}), repo.NewFilePost)
-				m.Post("/_preview/*", web.Bind(forms.EditPreviewDiffForm{}), repo.DiffPreviewPost)
+				m.Post("/_preview/*", web.Bind(forms.EditPreviewDiffForm{}), context.EnforceGitQuotaWeb(), repo.DiffPreviewPost)
 				m.Combo("/_delete/*").Get(repo.DeleteFile).
 					Post(web.Bind(forms.DeleteRepoFileForm{}), repo.DeleteFilePost)
-				m.Combo("/_upload/*", repo.MustBeAbleToUpload).
+				m.Combo("/_upload/*", context.EnforceGitQuotaWeb(), repo.MustBeAbleToUpload).
 					Get(repo.UploadFile).
 					Post(web.Bind(forms.UploadRepoFileForm{}), repo.UploadFilePost)
-				m.Combo("/_diffpatch/*").Get(repo.NewDiffPatch).
+				m.Combo("/_diffpatch/*", context.EnforceGitQuotaWeb()).Get(repo.NewDiffPatch).
 					Post(web.Bind(forms.EditRepoFileForm{}), repo.NewDiffPatchPost)
-				m.Combo("/_cherrypick/{sha:([a-f0-9]{4,64})}/*").Get(repo.CherryPick).
+				m.Combo("/_cherrypick/{sha:([a-f0-9]{4,64})}/*", context.EnforceGitQuotaWeb()).Get(repo.CherryPick).
 					Post(web.Bind(forms.CherryPickForm{}), repo.CherryPickPost)
 			}, repo.MustBeEditable, repo.CommonEditorData)
 			m.Group("", func() {
-				m.Post("/upload-file", repo.UploadFileToServer)
+				m.Post("/upload-file", context.EnforceGitQuotaWeb(), repo.UploadFileToServer)
 				m.Post("/upload-remove", web.Bind(forms.RemoveUploadFileForm{}), repo.RemoveUploadFileFromServer)
 			}, repo.MustBeEditable, repo.MustBeAbleToUpload)
 		}, context.RepoRef(), canEnableEditor, context.RepoMustNotBeArchived())
@@ -1255,9 +1255,9 @@ func registerRoutes(m *web.Route) {
 				m.Post("/branch/*", context.RepoRefByType(context.RepoRefBranch), repo.CreateBranch)
 				m.Post("/tag/*", context.RepoRefByType(context.RepoRefTag), repo.CreateBranch)
 				m.Post("/commit/*", context.RepoRefByType(context.RepoRefCommit), repo.CreateBranch)
-			}, web.Bind(forms.NewBranchForm{}))
+			}, web.Bind(forms.NewBranchForm{}), context.EnforceGitQuotaWeb())
 			m.Post("/delete", repo.DeleteBranchPost)
-			m.Post("/restore", repo.RestoreBranchPost)
+			m.Post("/restore", context.EnforceGitQuotaWeb(), repo.RestoreBranchPost)
 		}, context.RepoMustNotBeArchived(), reqRepoCodeWriter, repo.MustBeNotEmpty)
 	}, reqSignIn, context.RepoAssignment, context.UnitTypes())
 
@@ -1290,7 +1290,7 @@ func registerRoutes(m *web.Route) {
 			m.Get("/new", repo.NewRelease)
 			m.Post("/new", web.Bind(forms.NewReleaseForm{}), repo.NewReleasePost)
 			m.Post("/delete", repo.DeleteRelease)
-			m.Post("/attachments", repo.UploadReleaseAttachment)
+			m.Post("/attachments", context.EnforceFilesQuotaWeb(), repo.UploadReleaseAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 		}, reqSignIn, repo.MustBeNotEmpty, context.RepoMustNotBeArchived(), reqRepoReleaseWriter, context.RepoRef())
 		m.Group("/releases", func() {
@@ -1409,10 +1409,10 @@ func registerRoutes(m *web.Route) {
 		m.Group("/wiki", func() {
 			m.Combo("/").
 				Get(repo.Wiki).
-				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), repo.WikiPost)
+				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), context.EnforceGitQuotaWeb(), repo.WikiPost)
 			m.Combo("/*").
 				Get(repo.Wiki).
-				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), repo.WikiPost)
+				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), context.EnforceGitQuotaWeb(), repo.WikiPost)
 			m.Get("/commit/{sha:[a-f0-9]{4,64}}", repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.Diff)
 			m.Get("/commit/{sha:[a-f0-9]{4,64}}.{ext:patch|diff}", repo.RawDiff)
 		}, repo.MustEnableWiki, func(ctx *context.Context) {
@@ -1489,9 +1489,9 @@ func registerRoutes(m *web.Route) {
 				m.Get("/list", context.RepoRef(), repo.GetPullCommits)
 				m.Get("/{sha:[a-f0-9]{4,40}}", context.RepoRef(), repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.SetShowOutdatedComments, repo.ViewPullFilesForSingleCommit)
 			})
-			m.Post("/merge", context.RepoMustNotBeArchived(), web.Bind(forms.MergePullRequestForm{}), repo.MergePullRequest)
+			m.Post("/merge", context.RepoMustNotBeArchived(), web.Bind(forms.MergePullRequestForm{}), context.EnforceGitQuotaWeb(), repo.MergePullRequest)
 			m.Post("/cancel_auto_merge", context.RepoMustNotBeArchived(), repo.CancelAutoMergePullRequest)
-			m.Post("/update", repo.UpdatePullRequest)
+			m.Post("/update", context.EnforceGitQuotaWeb(), repo.UpdatePullRequest)
 			m.Post("/set_allow_maintainer_edit", web.Bind(forms.UpdateAllowEditsForm{}), repo.SetAllowEdits)
 			m.Post("/cleanup", context.RepoMustNotBeArchived(), context.RepoRef(), repo.CleanUpPullRequest)
 			m.Group("/files", func() {
@@ -1594,8 +1594,8 @@ func registerRoutes(m *web.Route) {
 
 		m.Group("/{reponame}", func() {
 			m.Group("/info/lfs", func() {
-				m.Post("/objects/batch", lfs.CheckAcceptMediaType, lfs.BatchHandler)
-				m.Put("/objects/{oid}/{size}", lfs.UploadHandler)
+				m.Post("/objects/batch", lfs.CheckAcceptMediaType, context.EnforceGitQuotaWeb(), lfs.BatchHandler)
+				m.Put("/objects/{oid}/{size}", context.EnforceGitQuotaWeb(), lfs.UploadHandler)
 				m.Get("/objects/{oid}/{filename}", lfs.DownloadHandler)
 				m.Get("/objects/{oid}", lfs.DownloadHandler)
 				m.Post("/verify", lfs.CheckAcceptMediaType, lfs.VerifyHandler)

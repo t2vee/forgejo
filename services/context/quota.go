@@ -27,6 +27,76 @@ func QuotaGroupAssignmentAPI() func(ctx *APIContext) {
 	}
 }
 
+// func (ctx *Context) EnforceFilesQuota() {
+
+// }
+
+func EnforceGitQuotaWeb() func(ctx *Context) {
+	return func(ctx *Context) {
+		if !setting.Quota.Enabled {
+			return
+		}
+
+		limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
+		if err != nil {
+			//log.Error("GetQuotaLimitsForUser: %v", err)
+			ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser")
+			return
+		}
+
+		if limits.LimitGit == -1 {
+			return
+		}
+		if limits.LimitGit == 0 {
+			ctx.Redirect("/quota-exceeded")
+			return
+		}
+		gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.Doer.ID)
+		if err != nil {
+			//log.Error("GetFilesUseForUser: %v", err)
+			ctx.Error(http.StatusInternalServerError, "GetGitUseForUser")
+			return
+		}
+		if limits.LimitGit < gitUse {
+			ctx.Redirect("/quota-exceeded")
+			return
+		}
+	}
+}
+
+func EnforceFilesQuotaWeb() func(ctx *Context) {
+	return func(ctx *Context) {
+		if !setting.Quota.Enabled {
+			return
+		}
+
+		limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
+		if err != nil {
+			//log.Error("GetQuotaLimitsForUser: %v", err)
+			ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser")
+			return
+		}
+
+		if limits.LimitFiles == -1 {
+			return
+		}
+		if limits.LimitFiles == 0 {
+			ctx.Redirect("/quota-exceeded")
+			return
+		}
+		filesUse, err := quota_model.GetFilesUseForUser(ctx, ctx.Doer.ID)
+		if err != nil {
+			//log.Error("GetFilesUseForUser: %v", err)
+			ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser")
+			return
+		}
+		if limits.LimitFiles < filesUse {
+			ctx.Redirect("/quota-exceeded")
+			return
+		}
+	}
+}
+
 func EnforceFilesQuotaAPI() func(ctx *APIContext) {
 	return func(ctx *APIContext) {
 		if !setting.Quota.Enabled {
