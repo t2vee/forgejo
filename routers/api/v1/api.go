@@ -1531,6 +1531,7 @@ func Routes() *web.Route {
 					m.Post("/orgs", bind(api.CreateOrgOption{}), admin.CreateOrg)
 					m.Post("/repos", bind(api.CreateRepoOption{}), admin.CreateRepo)
 					m.Post("/rename", bind(api.RenameUserOption{}), admin.RenameUser)
+					m.Get("/quota", admin.GetUserQuota)
 				}, context.UserAssignmentAPI())
 			})
 			m.Group("/emails", func() {

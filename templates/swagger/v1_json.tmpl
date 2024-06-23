@@ -873,6 +873,41 @@
         }
       }
     },
+    "/admin/users/{username}/quota": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get the user's quota info",
+        "operationId": "adminGetUserQuota",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "username of user to query",
+            "name": "username",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UserQuota"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
+          }
+        }
+      }
+    },
     "/admin/users/{username}/rename": {
       "post": {
         "produces": [
@@ -25449,6 +25484,25 @@
       },
       "x-go-package": "code.gitea.io/gitea/models/activities"
     },
+    "UserQuota": {
+      "description": "UserQuota represents a user's quota info",
+      "type": "object",
+      "properties": {
+        "file_use": {
+          "description": "File storage used by the user (attachments, artifacts, and packages)",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "FileUse"
+        },
+        "git_use": {
+          "description": "Git storage used by the user (including LFS)",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "GitUse"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
     "UserSettings": {
       "description": "UserSettings represents user settings",
       "type": "object",
@@ -26608,6 +26662,12 @@
         "items": {
           "$ref": "#/definitions/User"
         }
+      }
+    },
+    "UserQuota": {
+      "description": "UserQuota",
+      "schema": {
+        "$ref": "#/definitions/UserQuota"
       }
     },
     "UserSettings": {
