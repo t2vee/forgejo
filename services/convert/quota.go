@@ -17,8 +17,8 @@ func ToQuotaGroup(ctx context.Context, quotaGroup *quota_model.QuotaGroup) *api.
 	}
 
 	return &api.QuotaGroup{
-		Name: quotaGroup.Name,
-		LimitGit: quotaGroup.LimitGit,
+		Name:       quotaGroup.Name,
+		LimitGit:   quotaGroup.LimitGit,
 		LimitFiles: quotaGroup.LimitFiles,
 	}
 }

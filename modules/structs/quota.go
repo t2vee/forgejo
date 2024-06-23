@@ -25,15 +25,15 @@ type UserQuota struct {
 }
 
 type CreateQuotaGroupOption struct {
-	Name string `json:"name" binding:"Required"`
-	LimitGit int64 `json:"limit_git" binding:"Required"`
-	LimitFiles int64 `json:"limit_files" binding:"Required"`
+	Name       string `json:"name" binding:"Required"`
+	LimitGit   int64  `json:"limit_git" binding:"Required"`
+	LimitFiles int64  `json:"limit_files" binding:"Required"`
 }
 
 type QuotaGroup struct {
-	Name string `json:"name"`
-	LimitGit int64 `json:"limit_git"`
-	LimitFiles int64 `json:"limit_files"`
+	Name       string `json:"name"`
+	LimitGit   int64  `json:"limit_git"`
+	LimitFiles int64  `json:"limit_files"`
 }
 
 type QuotaGroupList []*QuotaGroup

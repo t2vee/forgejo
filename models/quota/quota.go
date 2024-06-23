@@ -6,7 +6,7 @@ package quota
 import (
 	"context"
 
- 	"code.gitea.io/gitea/models/db"
+	"code.gitea.io/gitea/models/db"
 	user_model "code.gitea.io/gitea/models/user"
 	api "code.gitea.io/gitea/modules/structs"
 )
@@ -18,16 +18,16 @@ const (
 )
 
 type QuotaGroup struct {
-	ID int64 `xorm:"pk autoincr"`
-	Name string `xorm:"UNIQUE NOT NULL"`
-	LimitGit int64
+	ID         int64  `xorm:"pk autoincr"`
+	Name       string `xorm:"UNIQUE NOT NULL"`
+	LimitGit   int64
 	LimitFiles int64
 }
 
 type QuotaMapping struct {
-	ID int64 `xorm:"pk autoincr"`
-	Kind QuotaKind
-	MappedID int64
+	ID           int64 `xorm:"pk autoincr"`
+	Kind         QuotaKind
+	MappedID     int64
 	QuotaGroupID int64
 }
 
@@ -42,10 +42,10 @@ func ListQuotaGroups(ctx context.Context) ([]*QuotaGroup, error) {
 	return groups, err
 }
 
-func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) (error) {
+func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) error {
 	group := QuotaGroup{
-		Name: opts.Name,
-		LimitGit: opts.LimitGit,
+		Name:       opts.Name,
+		LimitGit:   opts.LimitGit,
 		LimitFiles: opts.LimitFiles,
 	}
 	_, err := db.GetEngine(ctx).Insert(group)
@@ -69,8 +69,8 @@ func ListUsersInQuotaGroup(ctx context.Context, name string) ([]*user_model.User
 
 func (qg *QuotaGroup) AddUserByID(ctx context.Context, userID int64) error {
 	_, err := db.GetEngine(ctx).Insert(&QuotaMapping{
-		Kind: QuotaKindUser,
-		MappedID: userID,
+		Kind:         QuotaKindUser,
+		MappedID:     userID,
 		QuotaGroupID: qg.ID,
 	})
 	return err
@@ -90,7 +90,7 @@ func GetQuotaGroupByName(ctx context.Context, name string) (*QuotaGroup, error) 
 	return nil, err
 }
 
-func IsQuotaGroupInUse(ctx context.Context, name string) (bool) {
+func IsQuotaGroupInUse(ctx context.Context, name string) bool {
 	var inuse bool
 
 	group, err := GetQuotaGroupByName(ctx, name)
@@ -108,7 +108,7 @@ func IsQuotaGroupInUse(ctx context.Context, name string) (bool) {
 	return inuse
 }
 
-func DeleteQuotaGroupByName(ctx context.Context, name string) (error) {
+func DeleteQuotaGroupByName(ctx context.Context, name string) error {
 	_, err := db.GetEngine(ctx).Where("name = ?", name).Delete(QuotaGroup{})
 	return err
 }
@@ -119,7 +119,7 @@ func GetQuotaGroupForUser(ctx context.Context, userID int64) (*QuotaGroup, error
 		Table("quota_group").
 		Join("INNER", "`quota_mapping`", "`quota_mapping`.mapped_id = `quota_group`.id").
 		Where("`quota_mapping`.kind = ? AND `quota_mapping`.mapped_id = ?", QuotaKindUser, userID).
-		Get(&group);
+		Get(&group)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func GetFilesUseForUser(ctx context.Context, userID int64) (int64, error) {
 		Table("package_blob").
 		Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
 		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
-		Join("INNER", "`package`", "`package_version`.package_id = `package`.id" ).
+		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
 		Where("`package`.owner_id = ?", userID).
 		Get(&size)
 	if err != nil {

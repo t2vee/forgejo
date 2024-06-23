@@ -149,15 +149,15 @@ func GetUserQuota(ctx *context.APIContext) {
 	var userQuota api.UserQuota
 	if limits != nil {
 		userQuota = api.UserQuota{
-			GitLimit: limits.LimitGit,
-			GitUse: gitUse,
+			GitLimit:  limits.LimitGit,
+			GitUse:    gitUse,
 			FileLimit: limits.LimitFiles,
-			FileUse: fileUse,
-			Group: limits.Name,
+			FileUse:   fileUse,
+			Group:     limits.Name,
 		}
 	} else {
 		userQuota = api.UserQuota{
-			GitUse: gitUse,
+			GitUse:  gitUse,
 			FileUse: fileUse,
 		}
 	}

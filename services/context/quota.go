@@ -14,7 +14,6 @@ func QuotaGroupAssignmentAPI() func(ctx *APIContext) {
 	return func(ctx *APIContext) {
 		groupName := ctx.Params("quotagroup")
 		group, err := quota_model.GetQuotaGroupByName(ctx, groupName)
-
 		if err != nil {
 			ctx.Error(http.StatusInternalServerError, "GetQuotaGroupByName", err)
 			return
