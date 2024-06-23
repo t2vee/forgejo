@@ -7,6 +7,7 @@ import (
 	"context"
 
  	"code.gitea.io/gitea/models/db"
+	user_model "code.gitea.io/gitea/models/user"
 	api "code.gitea.io/gitea/modules/structs"
 )
 
@@ -48,6 +49,38 @@ func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) (err
 		LimitFiles: opts.LimitFiles,
 	}
 	_, err := db.GetEngine(ctx).Insert(group)
+	return err
+}
+
+func ListUsersInQuotaGroup(ctx context.Context, name string) (*[]user_model.User, error) {
+	group, err := GetQuotaGroupByName(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var users []user_model.User
+	err = db.GetEngine(ctx).Select("`user`.*").
+		Table("user").
+		Join("INNER", "`quota_mapping`", "`quota_mapping`.mapped_id = `user`.id").
+		Where("`quota_mapping`.kind = ? AND `quota_mapping`.quota_group_id = ?", QuotaKindUser, group.ID).
+		Find(&users)
+	return &users, err
+}
+
+func AddUserToQuotaGroup(ctx context.Context, name string, userID int64) (error) {
+	group, err := GetQuotaGroupByName(ctx, name)
+	if err != nil {
+		return err
+	}
+	// if group == nil {
+	// 	return "group not found"
+	// }
+
+	_, err = db.GetEngine(ctx).Insert(&QuotaMapping{
+		Kind: QuotaKindUser,
+		MappedID: userID,
+		QuotaGroupID: group.ID,
+	})
 	return err
 }
 

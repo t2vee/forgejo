@@ -1557,8 +1557,14 @@ func Routes() *web.Route {
 				m.Group("/groups", func() {
 					m.Combo("").Get(admin.ListQuotaGroups).
 						Post(bind(api.CreateQuotaGroupOption{}), admin.CreateQuotaGroup)
-					m.Combo("/{name}").Get(admin.GetQuotaGroup).
-						Delete(admin.DeleteQuotaGroup)
+					m.Group("/{name}", func() {
+						m.Combo("").Get(admin.GetQuotaGroup).
+							Delete(admin.DeleteQuotaGroup)
+						m.Group("/users", func() {
+							m.Get("", admin.ListUsersInQuotaGroup)
+							m.Post("/{username}", admin.AddUserToQuotaGroup)
+						})
+					})
 				})
 			})
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), reqToken(), reqSiteAdmin())

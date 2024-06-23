@@ -34,6 +34,29 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 	ctx.Status(http.StatusCreated)
 }
 
+func ListUsersInQuotaGroup(ctx *context.APIContext) {
+	group := ctx.Params("name")
+
+	users, err := quota_model.ListUsersInQuotaGroup(ctx, group)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "ListUsersInQuotaGroup", err)
+		return
+	}
+	ctx.JSON(http.StatusOK, users)
+}
+
+func AddUserToQuotaGroup(ctx *context.APIContext) {
+	group := ctx.Params("name")
+	//username := ctx.Params("username")
+
+	err := quota_model.AddUserToQuotaGroup(ctx, group, 1)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "AddUserToQuotaGroup", err)
+		return
+	}
+	ctx.Status(http.StatusCreated)
+}
+
 func DeleteQuotaGroup(ctx *context.APIContext) {
 	name := ctx.Params("name")
 
