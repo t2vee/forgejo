@@ -1531,7 +1531,9 @@ func Routes() *web.Route {
 					m.Post("/orgs", bind(api.CreateOrgOption{}), admin.CreateOrg)
 					m.Post("/repos", bind(api.CreateRepoOption{}), admin.CreateRepo)
 					m.Post("/rename", bind(api.RenameUserOption{}), admin.RenameUser)
-					m.Get("/quota", admin.GetUserQuota)
+					if setting.Quota.Enabled {
+						m.Get("/quota", admin.GetUserQuota)
+					}
 				}, context.UserAssignmentAPI())
 			})
 			m.Group("/emails", func() {
@@ -1553,19 +1555,21 @@ func Routes() *web.Route {
 			m.Group("/runners", func() {
 				m.Get("/registration-token", admin.GetRegistrationToken)
 			})
-			m.Group("/quota", func() {
-				m.Group("/groups", func() {
-					m.Combo("").Get(admin.ListQuotaGroups).
-						Post(bind(api.CreateQuotaGroupOption{}), admin.CreateQuotaGroup)
-					m.Group("/{quotagroup}", func() {
-						m.Combo("").Get(admin.GetQuotaGroup).
-							Delete(admin.DeleteQuotaGroup)
-						m.Combo("/users").Get(admin.ListUsersInQuotaGroup).
-							Post(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.AddUserToQuotaGroup).
-							Delete(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.RemoveUserFromQuotaGroup)
-					}, context.QuotaGroupAssignmentAPI())
+			if setting.Quota.Enabled {
+				m.Group("/quota", func() {
+					m.Group("/groups", func() {
+						m.Combo("").Get(admin.ListQuotaGroups).
+							Post(bind(api.CreateQuotaGroupOption{}), admin.CreateQuotaGroup)
+						m.Group("/{quotagroup}", func() {
+							m.Combo("").Get(admin.GetQuotaGroup).
+								Delete(admin.DeleteQuotaGroup)
+							m.Combo("/users").Get(admin.ListUsersInQuotaGroup).
+								Post(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.AddUserToQuotaGroup).
+								Delete(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.RemoveUserFromQuotaGroup)
+						}, context.QuotaGroupAssignmentAPI())
+					})
 				})
-			})
+			}
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), reqToken(), reqSiteAdmin())
 
 		m.Group("/topics", func() {
