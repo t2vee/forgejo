@@ -289,6 +289,16 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 		return
 	}
 
+	// check the owner's quota
+	overQuota, err := ctx.IsOverQuota()
+	if err != nil {
+		return
+	}
+	if overQuota {
+		ctx.Error(http.StatusRequestEntityTooLarge, "Quota exceeded")
+		return
+	}
+
 	comp := ctx.Req.URL.Query().Get("comp")
 	switch comp {
 	case "block", "appendBlock":

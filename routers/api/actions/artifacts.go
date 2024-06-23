@@ -71,6 +71,7 @@ import (
 
 	"code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/json"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
@@ -98,6 +99,40 @@ func init() {
 	web.RegisterResponseStatusProvider[*ArtifactContext](func(req *http.Request) web_types.ResponseStatusProvider {
 		return req.Context().Value(artifactContextKey).(*ArtifactContext)
 	})
+}
+
+func (ctx *ArtifactContext) IsOverQuota() (bool, error) {
+	if !setting.Quota.Enabled {
+		return false, nil
+	}
+
+	ownerID := ctx.ActionTask.OwnerID
+
+	limits, err := quota_model.GetQuotaLimitsForUser(ctx, ownerID)
+	if err != nil {
+		log.Error("GetQuotaLimitsForUser: %v", err)
+		ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser")
+		return false, err
+	}
+
+	if limits.LimitFiles == -1 {
+		return false, nil
+	}
+	if limits.LimitFiles == 0 {
+		return true, nil
+	}
+	filesUse, err := quota_model.GetFilesUseForUser(ctx, ownerID)
+	if err != nil {
+		log.Error("GetFilesUseForUser: %v", err)
+		ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser")
+		return false, err
+	}
+
+	if limits.LimitFiles < filesUse {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func ArtifactsRoutes(prefix string) *web.Route {
@@ -237,6 +272,16 @@ func (ar artifactRoutes) uploadArtifact(ctx *ArtifactContext) {
 	}
 	artifactName, artifactPath, ok := parseArtifactItemPath(ctx)
 	if !ok {
+		return
+	}
+
+	// check the owner's quota
+	overQuota, err := ctx.IsOverQuota()
+	if err != nil {
+		return
+	}
+	if overQuota {
+		ctx.Error(http.StatusRequestEntityTooLarge, "Quota exceeded")
 		return
 	}
 
