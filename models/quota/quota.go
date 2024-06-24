@@ -12,27 +12,27 @@ import (
 	api "code.gitea.io/gitea/modules/structs"
 )
 
-type QuotaKind int
+type QuotaKind int //revive:disable-line:exported
 
 const (
 	QuotaKindUser QuotaKind = iota
 )
 
-type QuotaGroup struct {
+type QuotaGroup struct { //revive:disable-line:exported
 	ID         int64  `xorm:"pk autoincr"`
 	Name       string `xorm:"UNIQUE NOT NULL"`
 	LimitGit   int64
 	LimitFiles int64
 }
 
-type QuotaMapping struct {
+type QuotaMapping struct { //revive:disable-line:exported
 	ID           int64 `xorm:"pk autoincr"`
 	Kind         QuotaKind
 	MappedID     int64
 	QuotaGroupID int64
 }
 
-type QuotaLimits struct {
+type QuotaLimits struct { //revive:disable-line:exported
 	LimitGit   int64
 	LimitFiles int64
 }
