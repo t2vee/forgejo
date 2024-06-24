@@ -157,6 +157,24 @@ func (ctx *Context) notFoundInternal(logMsg string, logErr error) {
 	ctx.HTML(http.StatusNotFound, base.TplName("status/404"))
 }
 
+func (ctx *Context) QuotaExceeded() {
+	showHTML := false
+	for _, part := range ctx.Req.Header["Accept"] {
+		if strings.Contains(part, "text/html") {
+			showHTML = true
+			break
+		}
+	}
+	if !showHTML {
+		ctx.plainTextInternal(3, http.StatusRequestEntityTooLarge, []byte("Quota exceeded.\n"))
+		return
+	}
+
+	ctx.Data["IsRepo"] = ctx.Repo.Repository != nil
+	ctx.Data["Title"] = "Quota Exceeded"
+	ctx.HTML(http.StatusRequestEntityTooLarge, base.TplName("status/413"))
+}
+
 // ServerError displays a 500 (Internal Server Error) page and prints the given error, if any.
 func (ctx *Context) ServerError(logMsg string, logErr error) {
 	ctx.serverErrorInternal(logMsg, logErr)

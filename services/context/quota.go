@@ -48,7 +48,7 @@ func EnforceGitQuotaWeb() func(ctx *Context) {
 			return
 		}
 		if limits.LimitGit == 0 {
-			ctx.Redirect("/quota-exceeded")
+			ctx.QuotaExceeded()
 			return
 		}
 		gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.Doer.ID)
@@ -58,7 +58,7 @@ func EnforceGitQuotaWeb() func(ctx *Context) {
 			return
 		}
 		if limits.LimitGit < gitUse {
-			ctx.Redirect("/quota-exceeded")
+			ctx.QuotaExceeded()
 			return
 		}
 	}
@@ -81,7 +81,7 @@ func EnforceFilesQuotaWeb() func(ctx *Context) {
 			return
 		}
 		if limits.LimitFiles == 0 {
-			ctx.Redirect("/quota-exceeded")
+			ctx.QuotaExceeded()
 			return
 		}
 		filesUse, err := quota_model.GetFilesUseForUser(ctx, ctx.Doer.ID)
@@ -91,7 +91,7 @@ func EnforceFilesQuotaWeb() func(ctx *Context) {
 			return
 		}
 		if limits.LimitFiles < filesUse {
-			ctx.Redirect("/quota-exceeded")
+			ctx.QuotaExceeded()
 			return
 		}
 	}
