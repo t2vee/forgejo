@@ -54,6 +54,8 @@ func Migrate(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "409":
 	//     description: The repository with the same name already exists.
+	//   "413":
+	//     "$ref": "#/responses/quotaExceeded"
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
