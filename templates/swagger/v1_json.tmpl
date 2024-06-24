@@ -17783,6 +17783,23 @@
         }
       }
     },
+    "/user/quota": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get quota information for the authenticated user",
+        "operationId": "userGetQuota",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UserQuota"
+          }
+        }
+      }
+    },
     "/user/repos": {
       "get": {
         "produces": [

@@ -11,7 +11,17 @@ import (
 	"code.gitea.io/gitea/services/context"
 )
 
+// GetQuota returns the quota information for the authenticated user
 func GetQuota(ctx *context.APIContext) {
+	// swagger:operation GET /user/quota user userGetQuota
+	// ---
+	// summary: Get quota information for the authenticated user
+	// produces:
+	// - application/json
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/UserQuota"
+
 	gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.Doer.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
