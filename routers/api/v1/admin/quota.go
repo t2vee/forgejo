@@ -131,35 +131,34 @@ func GetUserQuota(ctx *context.APIContext) {
 
 	gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetUserQuota", err)
+		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
 		return
 	}
 	fileUse, err := quota_model.GetFilesUseForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetUserQuota", err)
+		ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser", err)
 		return
 	}
 
-	limits, err := quota_model.GetQuotaGroupForUser(ctx, ctx.ContextUser.ID)
+	limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.ContextUser.ID)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser", err)
+	}
+
+	group, err := quota_model.GetQuotaGroupForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetUserQuota", err)
 		return
 	}
 
-	var userQuota api.UserQuota
-	if limits != nil {
-		userQuota = api.UserQuota{
+	userQuota := api.UserQuota{
 			GitLimit:  limits.LimitGit,
 			GitUse:    gitUse,
 			FileLimit: limits.LimitFiles,
 			FileUse:   fileUse,
-			Group:     limits.Name,
-		}
-	} else {
-		userQuota = api.UserQuota{
-			GitUse:  gitUse,
-			FileUse: fileUse,
-		}
+	}
+	if group != nil {
+		userQuota.Group = group.Name
 	}
 	ctx.JSON(http.StatusOK, &userQuota)
 }
