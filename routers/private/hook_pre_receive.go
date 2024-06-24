@@ -15,11 +15,13 @@ import (
 	issues_model "code.gitea.io/gitea/models/issues"
 	perm_model "code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/models/unit"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/private"
+	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/web"
 	gitea_context "code.gitea.io/gitea/services/context"
 	pull_service "code.gitea.io/gitea/services/pull"
@@ -140,6 +142,47 @@ func (ctx *preReceiveContext) assertPushOptions() bool {
 	return true
 }
 
+func (ctx *preReceiveContext) checkQuota() bool {
+	if !setting.Quota.Enabled {
+		return true
+	}
+
+	if !ctx.loadPusherAndPermission() {
+		return false
+	}
+
+	limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.user.ID)
+	if err != nil {
+		return false
+	}
+
+	if limits.LimitGit == -1 {
+		return true
+	}
+	if limits.LimitGit == 0 {
+		return false
+	}
+	gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.user.ID)
+	if err != nil {
+		return false
+	}
+	if limits.LimitGit < gitUse {
+		return false
+	}
+
+	return true
+}
+
+func (ctx *preReceiveContext) assertQuota() bool {
+	if ok := ctx.checkQuota(); !ok {
+		ctx.JSON(http.StatusRequestEntityTooLarge, private.Response{
+			UserMsg: "Quota exceeded",
+		})
+		return false
+	}
+	return true
+}
+
 // HookPreReceive checks whether a individual commit is acceptable
 func HookPreReceive(ctx *gitea_context.PrivateContext) {
 	opts := web.GetForm(ctx).(*private.HookOptions)
@@ -155,6 +198,10 @@ func HookPreReceive(ctx *gitea_context.PrivateContext) {
 		return
 	}
 	log.Trace("Git push options validation succeeded")
+
+	if !ourCtx.assertQuota() {
+		return
+	}
 
 	// Iterate across the provided old commit IDs
 	for i := range opts.OldCommitIDs {
