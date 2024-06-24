@@ -164,13 +164,16 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		var maxGit int64 = 0
 		var maxFiles int64 = 0
 
+		maxOf := func(old, new int64) int64 {
+			if new == -1 || old == -1 {
+				return -1
+			}
+			return max(old, new)
+		}
+
 		for _, group := range groups {
-			if (maxGit != -1 && group.LimitGit > maxGit) || group.LimitGit == -1 {
-				maxGit = group.LimitGit
-			}
-			if (maxFiles != -1 && group.LimitFiles > maxFiles) || group.LimitFiles == -1 {
-				maxFiles = group.LimitFiles
-			}
+			maxGit = maxOf(maxGit, group.LimitGit)
+			maxFiles = maxOf(maxFiles, group.LimitFiles)
 		}
 
 		limits = QuotaLimits{
