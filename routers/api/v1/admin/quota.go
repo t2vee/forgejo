@@ -312,7 +312,7 @@ func GetUserQuota(ctx *context.APIContext) {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser", err)
 	}
 
-	group, err := quota_model.GetQuotaGroupForUser(ctx, ctx.ContextUser.ID)
+	groups, err := quota_model.GetQuotaGroupsForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetUserQuota", err)
 		return
@@ -324,8 +324,11 @@ func GetUserQuota(ctx *context.APIContext) {
 		FileLimit: limits.LimitFiles,
 		FileUse:   fileUse,
 	}
-	if group != nil {
-		userQuota.Group = group.Name
+	if groups != nil {
+		userQuota.Groups = make([]string, len(groups))
+		for i, group := range groups {
+			userQuota.Groups[i] = group.Name
+		}
 	}
 	ctx.JSON(http.StatusOK, &userQuota)
 }

@@ -10,6 +10,8 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
+
+	"xorm.io/builder"
 )
 
 type QuotaKind int //revive:disable-line:exported
@@ -119,32 +121,38 @@ func DeleteQuotaGroupByName(ctx context.Context, name string) error {
 	return err
 }
 
-func GetQuotaGroupForUser(ctx context.Context, userID int64) (*QuotaGroup, error) {
-	var group QuotaGroup
-	has, err := db.GetEngine(ctx).Select("`quota_group`.*").
-		Table("quota_group").
-		Join("INNER", "`quota_mapping`", "`quota_mapping`.mapped_id = `quota_group`.id").
-		Where("`quota_mapping`.kind = ? AND `quota_mapping`.mapped_id = ?", QuotaKindUser, userID).
-		Get(&group)
+func GetQuotaGroupsForUser(ctx context.Context, userID int64) ([]*QuotaGroup, error) {
+	var groups []*QuotaGroup
+	err := db.GetEngine(ctx).
+		Where(builder.In("id",
+			builder.Select("quota_group_id").
+				From("quota_mapping").
+				Where(builder.And(
+					builder.Eq{"kind": QuotaKindUser},
+					builder.Eq{"mapped_id": userID}),
+				))).
+		Find(&groups)
 	if err != nil {
 		return nil, err
 	}
 
-	if !has {
-		has, err = db.GetEngine(ctx).Where("name = ?", setting.Quota.DefaultGroup).Get(&group)
+	if len(groups) == 0 {
+		var group QuotaGroup
+		has, err := db.GetEngine(ctx).Where("name = ?", setting.Quota.DefaultGroup).Get(&group)
 		if err != nil {
 			return nil, err
 		}
 		if !has {
 			return nil, nil
 		}
+		groups = []*QuotaGroup{&group}
 	}
 
-	return &group, nil
+	return groups, nil
 }
 
 func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, error) {
-	group, err := GetQuotaGroupForUser(ctx, userID)
+	groups, err := GetQuotaGroupsForUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +160,22 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		LimitGit:   -1,
 		LimitFiles: -1,
 	}
-	if group != nil {
+	if len(groups) > 0 {
+		var maxGit int64 = 0
+		var maxFiles int64 = 0
+
+		for _, group := range groups {
+			if (maxGit != -1 && group.LimitGit > maxGit) || group.LimitGit == -1 {
+				maxGit = group.LimitGit
+			}
+			if (maxFiles != -1 && group.LimitFiles > maxFiles) || group.LimitFiles == -1 {
+				maxFiles = group.LimitFiles
+			}
+		}
+
 		limits = QuotaLimits{
-			LimitGit:   group.LimitGit,
-			LimitFiles: group.LimitFiles,
+			LimitGit:   maxGit,
+			LimitFiles: maxFiles,
 		}
 	}
 	return &limits, nil

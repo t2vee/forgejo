@@ -14,8 +14,8 @@ type UserQuota struct {
 	FileLimit int64 `json:"file_limit"`
 	// File storage used by the user (attachments, artifacts, and packages)
 	FileUse int64 `json:"file_use"`
-	// Quota group for the user
-	Group string `json:"group,omitempty"`
+	// Quota groups the user is part of
+	Groups []string `json:"groups,omitempty"`
 }
 
 // CreateQuotaGroupOption represents the options for creating a quota group

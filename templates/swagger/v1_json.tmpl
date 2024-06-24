@@ -25895,10 +25895,13 @@
           "format": "int64",
           "x-go-name": "GitUse"
         },
-        "group": {
-          "description": "Quota group for the user",
-          "type": "string",
-          "x-go-name": "Group"
+        "groups": {
+          "description": "Quota groups the user is part of",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Groups"
         }
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"
