@@ -161,6 +161,49 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 	return &limits, nil
 }
 
+func checkQuota(ctx context.Context, userID, limit int64, getUsed func(context.Context, int64) (int64, error)) (bool, error) {
+	if limit == -1 {
+		return true, nil
+	}
+	if limit == 0 {
+		return false, nil
+	}
+	used, err := getUsed(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if limit < used {
+		return false, nil
+	}
+	return true, nil
+}
+
+func CheckFilesQuotaLimitsForUser(ctx context.Context, userID int64) (bool, error) {
+	if !setting.Quota.Enabled {
+		return true, nil
+	}
+
+	limits, err := GetQuotaLimitsForUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	return checkQuota(ctx, userID, limits.LimitFiles, GetFilesUseForUser)
+}
+
+func CheckGitQuotaLimitsForUser(ctx context.Context, userID int64) (bool, error) {
+	if !setting.Quota.Enabled {
+		return true, nil
+	}
+
+	limits, err := GetQuotaLimitsForUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	return checkQuota(ctx, userID, limits.LimitGit, GetGitUseForUser)
+}
+
 func GetGitUseForUser(ctx context.Context, userID int64) (int64, error) {
 	var size int64
 	_, err := db.GetEngine(ctx).Select("SUM(size) AS size").

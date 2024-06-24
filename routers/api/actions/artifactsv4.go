@@ -92,6 +92,7 @@ import (
 
 	"code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/storage"
@@ -290,11 +291,13 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 	}
 
 	// check the owner's quota
-	overQuota, err := ctx.IsOverQuota()
+	ok, err := quota_model.CheckFilesQuotaLimitsForUser(ctx, ctx.ActionTask.OwnerID)
 	if err != nil {
+		log.Error("CheckFilesQuotaLimitsForUser: %v", err)
+		ctx.Error(http.StatusInternalServerError, "Error checking quota")
 		return
 	}
-	if overQuota {
+	if !ok {
 		ctx.Error(http.StatusRequestEntityTooLarge, "Quota exceeded")
 		return
 	}

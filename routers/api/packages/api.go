@@ -77,31 +77,13 @@ func reqPackageAccess(accessMode perm.AccessMode) func(ctx *context.Context) {
 
 func enforceFilesQuota() func(ctx *context.Context) {
 	return func(ctx *context.Context) {
-		if !setting.Quota.Enabled {
-			return
-		}
-
-		limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
+		ok, err := quota_model.CheckFilesQuotaLimitsForUser(ctx, ctx.Doer.ID)
 		if err != nil {
-			log.Error("GetQuotaLimitsForUser: %v", err)
-			ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser")
+			log.Error("CheckFilesQuotaLimitsForUser: %v", err)
+			ctx.Error(http.StatusInternalServerError, "Error checking quota")
 			return
 		}
-
-		if limits.LimitFiles == -1 {
-			return
-		}
-		if limits.LimitFiles == 0 {
-			ctx.Error(http.StatusRequestEntityTooLarge, "enforceFilesQuota", "quota exceeded")
-			return
-		}
-		filesUse, err := quota_model.GetFilesUseForUser(ctx, ctx.Doer.ID)
-		if err != nil {
-			log.Error("GetFilesUseForUser: %v", err)
-			ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser")
-			return
-		}
-		if limits.LimitFiles < filesUse {
+		if !ok {
 			ctx.Error(http.StatusRequestEntityTooLarge, "enforceFilesQuota", "quota exceeded")
 			return
 		}
