@@ -9,7 +9,6 @@ import (
 
 	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/base"
-	"code.gitea.io/gitea/modules/setting"
 )
 
 // QuotaGroupAssignmentAPI returns a middleware to handle context-quota-group assignment for api routes
@@ -75,10 +74,15 @@ func EnforceFilesQuotaWeb() func(ctx *Context) {
 	}
 }
 
+// QuotaExceeded
+// swagger:response quotaExceeded
+type APIQuotaExceeded struct {
+	Message string `json:"message"`
+}
+
 func (ctx *APIContext) QuotaExceeded() {
-	ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
+	ctx.JSON(http.StatusRequestEntityTooLarge, APIQuotaExceeded{
 		Message: "quota exceeded",
-		URL:     setting.API.SwaggerURL,
 	})
 }
 

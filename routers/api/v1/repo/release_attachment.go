@@ -191,6 +191,8 @@ func CreateReleaseAttachment(ctx *context.APIContext) {
 	//     "$ref": "#/responses/error"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
+	//   "413":
+	//     "$ref": "#/responses/quotaExceeded"
 
 	// Check if attachments are enabled
 	if !setting.Attachment.Enabled {
@@ -293,6 +295,8 @@ func EditReleaseAttachment(ctx *context.APIContext) {
 	//     "$ref": "#/responses/Attachment"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
+	//   "413":
+	//     "$ref": "#/responses/quotaExceeded"
 
 	form := web.GetForm(ctx).(*api.EditAttachmentOptions)
 

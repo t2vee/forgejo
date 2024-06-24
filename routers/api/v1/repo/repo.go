@@ -302,6 +302,8 @@ func Create(ctx *context.APIContext) {
 	//     "$ref": "#/responses/error"
 	//   "409":
 	//     description: The repository with the same name already exists.
+	//   "413":
+	//     "$ref": "#/responses/quotaExceeded"
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 	opt := web.GetForm(ctx).(*api.CreateRepoOption)
@@ -346,6 +348,8 @@ func Generate(ctx *context.APIContext) {
 	//     "$ref": "#/responses/notFound"
 	//   "409":
 	//     description: The repository with the same name already exists.
+	//   "413":
+	//     "$ref": "#/responses/quotaExceeded"
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 	form := web.GetForm(ctx).(*api.GenerateRepoOption)
