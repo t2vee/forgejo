@@ -3,12 +3,6 @@
 
 package structs
 
-// import (
-// 	"time"
-
-// 	"code.gitea.io/gitea/modules/json"
-// )
-
 // UserQuota represents a user's quota info
 // swagger:model
 type UserQuota struct {
@@ -24,20 +18,35 @@ type UserQuota struct {
 	Group string `json:"group,omitempty"`
 }
 
+// CreateQuotaGroupOption represents the options for creating a quota group
+// swagger:model
 type CreateQuotaGroupOption struct {
+	// Name of the quota group
 	Name       string `json:"name" binding:"Required"`
+	// Git storage limit for the group
 	LimitGit   int64  `json:"limit_git" binding:"Required"`
+	// File storage limit for the group
 	LimitFiles int64  `json:"limit_files" binding:"Required"`
 }
 
+// QuotaGroup represents a quota group
+// swagger:model
 type QuotaGroup struct {
+	// Name of the quota group
 	Name       string `json:"name"`
+	// Git storage limit for the group
 	LimitGit   int64  `json:"limit_git"`
+	// File storage limit for the group
 	LimitFiles int64  `json:"limit_files"`
 }
 
+// QuotaGroupList is a list of quota groups
+// swagger:model
 type QuotaGroupList []*QuotaGroup
 
+// QuotaGroupAddOrRemoveUserOption represents the options for quota group membership management
+// swagger:model
 type QuotaGroupAddOrRemoveUserOption struct {
+	// Name of the user to add to or remove from the quota group
 	Username string `json:"username" binding:"Required"`
 }

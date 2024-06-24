@@ -451,6 +451,259 @@
         }
       }
     },
+    "/admin/quota/groups": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "List the available quota groups",
+        "operationId": "adminListQuotaGroups",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/QuotaGroupList"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          }
+        }
+      },
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create a new quota group",
+        "operationId": "adminCreateQuotaGroup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the quota group",
+            "name": "name",
+            "in": "body",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "Git quota limit for the group (in bytes)",
+            "name": "limit_git",
+            "in": "body",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "File asset quota limit for the group (in bytes)",
+            "name": "limit_files",
+            "in": "body",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/created"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
+          }
+        }
+      }
+    },
+    "/admin/quota/groups/{quotagroup}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get information about the quota group",
+        "operationId": "adminGetQuotaGroup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "quota group to query",
+            "name": "quotagroup",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/QuotaGroup"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete a quota group",
+        "operationId": "adminDeleteQuotaGroup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "quota group to delete",
+            "name": "quotagroup",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
+          }
+        }
+      }
+    },
+    "/admin/quota/groups/{quotagroup}/users": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "List users in a quota group",
+        "operationId": "adminListUsersInQuotaGroup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "quota group to list members of",
+            "name": "quotagroup",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UserList"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Add a user to a quota group",
+        "operationId": "adminAddUserToQuotaGroup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "quota group to add the user to",
+            "name": "quotagroup",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "username of the user to add to the quota group",
+            "name": "username",
+            "in": "body",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/created"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Remove a user from a quota group",
+        "operationId": "adminRemoveUserFromQuotaGroup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "quota group to remove a user from",
+            "name": "quotagroup",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "username of the user to remove from the quota group",
+            "name": "username",
+            "in": "body",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/admin/runners/registration-token": {
       "get": {
         "produces": [
@@ -901,6 +1154,9 @@
           },
           "403": {
             "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
           },
           "422": {
             "$ref": "#/responses/validationError"
@@ -24212,6 +24468,38 @@
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"
     },
+    "QuotaGroup": {
+      "description": "QuotaGroup represents a quota group",
+      "type": "object",
+      "properties": {
+        "limit_files": {
+          "description": "File storage limit for the group",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitFiles"
+        },
+        "limit_git": {
+          "description": "Git storage limit for the group",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitGit"
+        },
+        "name": {
+          "description": "Name of the quota group",
+          "type": "string",
+          "x-go-name": "Name"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
+    "QuotaGroupList": {
+      "description": "QuotaGroupList is a list of quota groups",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/QuotaGroup"
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
     "Reaction": {
       "description": "Reaction contain one reaction",
       "type": "object",
@@ -25488,17 +25776,34 @@
       "description": "UserQuota represents a user's quota info",
       "type": "object",
       "properties": {
+        "file_limit": {
+          "description": "File storage limit for the user",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "FileLimit"
+        },
         "file_use": {
           "description": "File storage used by the user (attachments, artifacts, and packages)",
           "type": "integer",
           "format": "int64",
           "x-go-name": "FileUse"
         },
+        "git_limit": {
+          "description": "Git storage limit for the user (including LFS)",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "GitLimit"
+        },
         "git_use": {
           "description": "Git storage used by the user (including LFS)",
           "type": "integer",
           "format": "int64",
           "x-go-name": "GitUse"
+        },
+        "group": {
+          "description": "Quota group for the user",
+          "type": "string",
+          "x-go-name": "Group"
         }
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"
@@ -26405,6 +26710,18 @@
         "items": {
           "$ref": "#/definitions/PushMirror"
         }
+      }
+    },
+    "QuotaGroup": {
+      "description": "QuotaGroup",
+      "schema": {
+        "$ref": "#/definitions/QuotaGroup"
+      }
+    },
+    "QuotaGroupList": {
+      "description": "QuotaGroupList",
+      "schema": {
+        "$ref": "#/definitions/QuotaGroupList"
       }
     },
     "Reaction": {

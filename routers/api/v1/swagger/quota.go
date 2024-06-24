@@ -13,3 +13,17 @@ type swaggerResponseUserQuota struct {
 	// in:body
 	Body api.UserQuota `json:"body"`
 }
+
+// QuotaGroup
+// swagger:response QuotaGroup
+type swaggerResponseQuotaGroup struct {
+	// in:body
+	Body api.QuotaGroup `json:"body"`
+}
+
+// QuotaGroupList
+// swagger:response QuotaGroupList
+type swaggerResponseQuotaGroupList struct {
+	// in:body
+	Body api.QuotaGroupList `json:"body"`
+}
