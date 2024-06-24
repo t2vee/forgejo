@@ -22,22 +22,22 @@ type UserQuota struct {
 // swagger:model
 type CreateQuotaGroupOption struct {
 	// Name of the quota group
-	Name       string `json:"name" binding:"Required"`
+	Name string `json:"name" binding:"Required"`
 	// Git storage limit for the group
-	LimitGit   int64  `json:"limit_git" binding:"Required"`
+	LimitGit int64 `json:"limit_git" binding:"Required"`
 	// File storage limit for the group
-	LimitFiles int64  `json:"limit_files" binding:"Required"`
+	LimitFiles int64 `json:"limit_files" binding:"Required"`
 }
 
 // QuotaGroup represents a quota group
 // swagger:model
 type QuotaGroup struct {
 	// Name of the quota group
-	Name       string `json:"name"`
+	Name string `json:"name"`
 	// Git storage limit for the group
-	LimitGit   int64  `json:"limit_git"`
+	LimitGit int64 `json:"limit_git"`
 	// File storage limit for the group
-	LimitFiles int64  `json:"limit_files"`
+	LimitFiles int64 `json:"limit_files"`
 }
 
 // QuotaGroupList is a list of quota groups

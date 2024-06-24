@@ -319,10 +319,10 @@ func GetUserQuota(ctx *context.APIContext) {
 	}
 
 	userQuota := api.UserQuota{
-			GitLimit:  limits.LimitGit,
-			GitUse:    gitUse,
-			FileLimit: limits.LimitFiles,
-			FileUse:   fileUse,
+		GitLimit:  limits.LimitGit,
+		GitUse:    gitUse,
+		FileLimit: limits.LimitFiles,
+		FileUse:   fileUse,
 	}
 	if group != nil {
 		userQuota.Group = group.Name
