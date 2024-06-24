@@ -39,7 +39,7 @@ func EnforceGitQuotaWeb() func(ctx *Context) {
 
 		limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
 		if err != nil {
-			//log.Error("GetQuotaLimitsForUser: %v", err)
+			// log.Error("GetQuotaLimitsForUser: %v", err)
 			ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser")
 			return
 		}
@@ -53,7 +53,7 @@ func EnforceGitQuotaWeb() func(ctx *Context) {
 		}
 		gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.Doer.ID)
 		if err != nil {
-			//log.Error("GetFilesUseForUser: %v", err)
+			// log.Error("GetFilesUseForUser: %v", err)
 			ctx.Error(http.StatusInternalServerError, "GetGitUseForUser")
 			return
 		}
@@ -72,7 +72,7 @@ func EnforceFilesQuotaWeb() func(ctx *Context) {
 
 		limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
 		if err != nil {
-			//log.Error("GetQuotaLimitsForUser: %v", err)
+			// log.Error("GetQuotaLimitsForUser: %v", err)
 			ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser")
 			return
 		}
@@ -86,7 +86,7 @@ func EnforceFilesQuotaWeb() func(ctx *Context) {
 		}
 		filesUse, err := quota_model.GetFilesUseForUser(ctx, ctx.Doer.ID)
 		if err != nil {
-			//log.Error("GetFilesUseForUser: %v", err)
+			// log.Error("GetFilesUseForUser: %v", err)
 			ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser")
 			return
 		}
@@ -115,7 +115,7 @@ func EnforceFilesQuotaAPI() func(ctx *APIContext) {
 		if limits.LimitFiles == 0 {
 			ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
 				Message: "quota exceeded",
-				URL: setting.API.SwaggerURL,
+				URL:     setting.API.SwaggerURL,
 			})
 			return
 		}
@@ -125,9 +125,9 @@ func EnforceFilesQuotaAPI() func(ctx *APIContext) {
 			return
 		}
 		if limits.LimitFiles < filesUse {
-				ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
+			ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
 				Message: "quota exceeded",
-				URL: setting.API.SwaggerURL,
+				URL:     setting.API.SwaggerURL,
 			})
 			return
 		}
@@ -152,7 +152,7 @@ func EnforceGitQuotaAPI() func(ctx *APIContext) {
 		if limits.LimitGit == 0 {
 			ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
 				Message: "quota exceeded",
-				URL: setting.API.SwaggerURL,
+				URL:     setting.API.SwaggerURL,
 			})
 			return
 		}
@@ -162,9 +162,9 @@ func EnforceGitQuotaAPI() func(ctx *APIContext) {
 			return
 		}
 		if limits.LimitGit < gitUse {
-				ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
+			ctx.JSON(http.StatusRequestEntityTooLarge, APIError{
 				Message: "quota exceeded",
-				URL: setting.API.SwaggerURL,
+				URL:     setting.API.SwaggerURL,
 			})
 			return
 		}
