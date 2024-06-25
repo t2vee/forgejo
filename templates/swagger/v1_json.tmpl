@@ -24612,65 +24612,127 @@
       "x-go-package": "code.gitea.io/gitea/models/quota"
     },
     "QuotaLimits": {
+      "description": "QuotaLimits represents the limits affecting a user",
       "type": "object",
       "properties": {
-        "LimitAssetArtifacts": {
-          "type": "integer",
-          "format": "int64"
+        "assets": {
+          "$ref": "#/definitions/QuotaLimitsAssets"
         },
-        "LimitAssetAttachments": {
-          "type": "integer",
-          "format": "int64"
+        "git": {
+          "$ref": "#/definitions/QuotaLimitsGit"
         },
-        "LimitAssetPackages": {
+        "total": {
+          "description": "The total space available to the user",
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "x-go-name": "Total"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/models/quota"
+    },
+    "QuotaLimitsAssets": {
+      "description": "QuotaLimitsAssets represents the asset-related limits affecting a user",
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "description": "Space available to the user for artifacts",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Artifacts"
         },
-        "LimitAssetTotal": {
+        "attachments": {
+          "description": "Space available to the user for attachments",
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "x-go-name": "Attachments"
         },
-        "LimitGitCode": {
+        "packages": {
+          "description": "Space available to the user for packages",
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "x-go-name": "Packages"
         },
-        "LimitGitLFS": {
+        "total": {
+          "description": "The total amount of asset space available to the user",
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "x-go-name": "Total"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/models/quota"
+    },
+    "QuotaLimitsGit": {
+      "description": "QuotaLimitsGit represents the Git-related limits affecting a user",
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "Normal git space available to the user",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Code"
         },
-        "LimitGitTotal": {
+        "lfs": {
+          "description": "Git LFS space available to the user",
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "x-go-name": "LFS"
         },
-        "LimitTotal": {
+        "total": {
+          "description": "The total git space available to the user",
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "x-go-name": "Total"
         }
       },
       "x-go-package": "code.gitea.io/gitea/models/quota"
     },
     "QuotaUsed": {
+      "description": "QuotaUsed represents the quota used by a user",
       "type": "object",
       "properties": {
-        "AssetArtifacts": {
-          "type": "integer",
-          "format": "int64"
+        "assets": {
+          "description": "Space used by the user for various assets",
+          "type": "object",
+          "properties": {
+            "artifacts": {
+              "description": "Space used by the user's artifacts",
+              "type": "integer",
+              "format": "int64",
+              "x-go-name": "Artifacts"
+            },
+            "attachments": {
+              "description": "Space used by the user's attachments",
+              "type": "integer",
+              "format": "int64",
+              "x-go-name": "Attachments"
+            },
+            "packages": {
+              "description": "Space used by the user's packages",
+              "type": "integer",
+              "format": "int64",
+              "x-go-name": "Packages"
+            }
+          },
+          "x-go-name": "Assets"
         },
-        "AssetAttachments": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "AssetPackages": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "GitCode": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "GitLFS": {
-          "type": "integer",
-          "format": "int64"
+        "git": {
+          "description": "Git storage used by the user",
+          "type": "object",
+          "properties": {
+            "code": {
+              "description": "Git storage used by the user",
+              "type": "integer",
+              "format": "int64",
+              "x-go-name": "Code"
+            },
+            "lfs": {
+              "description": "Git LFS storage used by the user",
+              "type": "integer",
+              "format": "int64",
+              "x-go-name": "LFS"
+            }
+          },
+          "x-go-name": "Git"
         }
       },
       "x-go-package": "code.gitea.io/gitea/models/quota"
@@ -25952,6 +26014,7 @@
       "type": "object",
       "properties": {
         "groups": {
+          "description": "quota groups the user is part of",
           "type": "array",
           "items": {
             "type": "string"

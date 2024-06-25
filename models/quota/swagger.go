@@ -10,7 +10,8 @@ package quota
 type UserQuota struct {
 	Limits QuotaLimits `json:"limits"`
 	Used   QuotaUsed   `json:"used"`
-	Groups []string    `json:"groups,omitempty"`
+	// quota groups the user is part of
+	Groups []string `json:"groups,omitempty"`
 }
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.

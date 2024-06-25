@@ -11,15 +11,24 @@ import (
 	"code.gitea.io/gitea/models/db"
 )
 
+// QuotaUsed represents the quota used by a user
+// swagger:model
 type QuotaUsed struct { //revive:disable-line:exported
+	// Git storage used by the user
 	Git struct {
+		// Git storage used by the user
 		Code int64 `json:"code"`
-		LFS  int64 `json:"lfs"`
+		// Git LFS storage used by the user
+		LFS int64 `json:"lfs"`
 	} `json:"git"`
+	// Space used by the user for various assets
 	Assets struct {
+		// Space used by the user's attachments
 		Attachments int64 `json:"attachments"`
-		Artifacts   int64 `json:"artifacts"`
-		Packages    int64 `json:"packages"`
+		// Space used by the user's artifacts
+		Artifacts int64 `json:"artifacts"`
+		// Space used by the user's packages
+		Packages int64 `json:"packages"`
 	} `json:"assets"`
 }
 

@@ -21,23 +21,37 @@ const (
 	QuotaLimitCategoryWiki
 )
 
+// QuotaLimits represents the limits affecting a user
+// swagger:model
 type QuotaLimits struct { //revive:disable-line:exported
+	// The total space available to the user
 	Total  *int64             `json:"total,omitempty"`
 	Git    *QuotaLimitsGit    `json:"git,omitempty"`
 	Assets *QuotaLimitsAssets `json:"assets,omitempty"`
 }
 
+// QuotaLimitsGit represents the Git-related limits affecting a user
+// swagger:model
 type QuotaLimitsGit struct {
+	// The total git space available to the user
 	Total *int64 `json:"total,omitempty"`
-	Code  *int64 `json:"code,omitempty"`
-	LFS   *int64 `json:"lfs,omitempty"`
+	// Normal git space available to the user
+	Code *int64 `json:"code,omitempty"`
+	// Git LFS space available to the user
+	LFS *int64 `json:"lfs,omitempty"`
 }
 
+// QuotaLimitsAssets represents the asset-related limits affecting a user
+// swagger:model
 type QuotaLimitsAssets struct {
-	Total       *int64 `json:"total,omitempty"`
+	// The total amount of asset space available to the user
+	Total *int64 `json:"total,omitempty"`
+	// Space available to the user for attachments
 	Attachments *int64 `json:"attachments,omitempty"`
-	Artifacts   *int64 `json:"artifacts,omitempty"`
-	Packages    *int64 `json:"packages,omitempty"`
+	// Space available to the user for artifacts
+	Artifacts *int64 `json:"artifacts,omitempty"`
+	// Space available to the user for packages
+	Packages *int64 `json:"packages,omitempty"`
 }
 
 func (s *QuotaLimitsGit) IsEmpty() bool {
