@@ -24564,10 +24564,20 @@
           "format": "int64",
           "x-go-name": "LimitAssetArtifacts"
         },
-        "limit_asset_attachments": {
+        "limit_asset_attachments_issues": {
           "type": "integer",
           "format": "int64",
-          "x-go-name": "LimitAssetAttachments"
+          "x-go-name": "LimitAssetAttachmentsIssues"
+        },
+        "limit_asset_attachments_releases": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitAssetAttachmentsReleases"
+        },
+        "limit_asset_attachments_total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitAssetAttachmentsTotal"
         },
         "limit_asset_packages": {
           "type": "integer",
@@ -24647,7 +24657,7 @@
           "x-go-name": "Total"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/models/quota"
+      "x-go-package": "code.gitea.io/gitea/services/quota"
     },
     "QuotaLimitsAssets": {
       "description": "QuotaLimitsAssets represents the asset-related limits affecting a user",
@@ -24660,10 +24670,7 @@
           "x-go-name": "Artifacts"
         },
         "attachments": {
-          "description": "Space available to the user for attachments",
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "Attachments"
+          "$ref": "#/definitions/QuotaLimitsAttachments"
         },
         "packages": {
           "description": "Space available to the user for packages",
@@ -24678,7 +24685,32 @@
           "x-go-name": "Total"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/models/quota"
+      "x-go-package": "code.gitea.io/gitea/services/quota"
+    },
+    "QuotaLimitsAttachments": {
+      "description": "QuotaLimitsAttachments represents the attachment related limits affecting a user",
+      "type": "object",
+      "properties": {
+        "issues": {
+          "description": "Space available to the user for issue \u0026 comment attachments",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Issues"
+        },
+        "releases": {
+          "description": "Space available to the user for release attachments",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Releases"
+        },
+        "total": {
+          "description": "Total amount of attachment space available to the user",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Total"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/services/quota"
     },
     "QuotaLimitsGit": {
       "description": "QuotaLimitsGit represents the Git-related limits affecting a user",
@@ -24703,7 +24735,7 @@
           "x-go-name": "Total"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/models/quota"
+      "x-go-package": "code.gitea.io/gitea/services/quota"
     },
     "QuotaUsed": {
       "description": "QuotaUsed represents the quota used by a user",
@@ -24721,8 +24753,21 @@
             },
             "attachments": {
               "description": "Space used by the user's attachments",
-              "type": "integer",
-              "format": "int64",
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "description": "Space used by the user's issue \u0026 comment attachments",
+                  "type": "integer",
+                  "format": "int64",
+                  "x-go-name": "Issues"
+                },
+                "releases": {
+                  "description": "Space used by the user's release attachments",
+                  "type": "integer",
+                  "format": "int64",
+                  "x-go-name": "Releases"
+                }
+              },
               "x-go-name": "Attachments"
             },
             "packages": {
@@ -24754,7 +24799,7 @@
           "x-go-name": "Git"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/models/quota"
+      "x-go-package": "code.gitea.io/gitea/services/quota"
     },
     "Reaction": {
       "description": "Reaction contain one reaction",
@@ -26047,7 +26092,7 @@
           "$ref": "#/definitions/QuotaUsed"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/models/quota"
+      "x-go-package": "code.gitea.io/gitea/services/quota"
     },
     "UserSettings": {
       "description": "UserSettings represents user settings",
