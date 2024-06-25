@@ -1595,8 +1595,8 @@ func registerRoutes(m *web.Route) {
 
 		m.Group("/{reponame}", func() {
 			m.Group("/info/lfs", func() {
-				m.Post("/objects/batch", lfs.CheckAcceptMediaType, context.EnforceQuotaWeb(quota_model.QuotaLimitCategoryGitLFS), lfs.BatchHandler)
-				m.Put("/objects/{oid}/{size}", context.EnforceQuotaWeb(quota_model.QuotaLimitCategoryGitLFS), lfs.UploadHandler)
+				m.Post("/objects/batch", lfs.CheckAcceptMediaType, lfs.BatchHandler)
+				m.Put("/objects/{oid}/{size}", lfs.UploadHandler)
 				m.Get("/objects/{oid}/{filename}", lfs.DownloadHandler)
 				m.Get("/objects/{oid}", lfs.DownloadHandler)
 				m.Post("/verify", lfs.CheckAcceptMediaType, lfs.VerifyHandler)
