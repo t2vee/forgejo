@@ -32,7 +32,7 @@ type QuotaLimits struct { //revive:disable-line:exported
 
 // QuotaLimitsGit represents the Git-related limits affecting a user
 // swagger:model
-type QuotaLimitsGit struct {
+type QuotaLimitsGit struct { //revive:disable-line:exported
 	// The total git space available to the user
 	Total *int64 `json:"total,omitempty"`
 	// Normal git space available to the user
@@ -43,7 +43,7 @@ type QuotaLimitsGit struct {
 
 // QuotaLimitsAssets represents the asset-related limits affecting a user
 // swagger:model
-type QuotaLimitsAssets struct {
+type QuotaLimitsAssets struct { //revive:disable-line:exported
 	// The total amount of asset space available to the user
 	Total *int64 `json:"total,omitempty"`
 	// Space available to the user for attachments
