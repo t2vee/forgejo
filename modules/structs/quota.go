@@ -4,8 +4,8 @@
 package structs
 
 // QuotaGroupAddOrRemoveUserOption represents the options for quota group membership management
-// swagger:model
 type QuotaGroupAddOrRemoveUserOption struct {
 	// Name of the user to add to or remove from the quota group
+	// required: true
 	Username string `json:"username" binding:"Required"`
 }

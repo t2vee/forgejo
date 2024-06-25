@@ -5,6 +5,7 @@ package swagger
 
 import (
 	quota_model "code.gitea.io/gitea/models/quota"
+	api "code.gitea.io/gitea/modules/structs"
 )
 
 // UserQuota
@@ -26,4 +27,11 @@ type swaggerResponseQuotaGroup struct {
 type swaggerResponseQuotaGroupList struct {
 	// in:body
 	Body quota_model.QuotaGroupList `json:"body"`
+}
+
+// QuotaGroupAddOrRemoveUserOption
+// swagger:response QuotaGroupAddOrRemoveUserOption
+type swaggerDefinitionQuotaGroupAddOrRemoveUserOption struct {
+	// in:body
+	Body api.QuotaGroupAddOrRemoveUserOption `json:"body"`
 }

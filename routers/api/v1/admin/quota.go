@@ -117,7 +117,8 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 	// - name: username
 	//   in: body
 	//   description: username of the user to add to the quota group
-	//   type: string
+	//   schema:
+	//     "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
 	//   required: true
 	// responses:
 	//   "201":
@@ -164,8 +165,9 @@ func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
 	//   required: true
 	// - name: username
 	//   in: body
-	//   description: username of the user to remove from the quota group
-	//   type: string
+	//   description: username of the user to add to the quota group
+	//   schema:
+	//     "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
 	//   required: true
 	// responses:
 	//   "204":

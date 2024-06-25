@@ -629,11 +629,13 @@
             "required": true
           },
           {
-            "type": "string",
             "description": "username of the user to add to the quota group",
             "name": "username",
             "in": "body",
-            "required": true
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
+            }
           }
         ],
         "responses": {
@@ -669,11 +671,13 @@
             "required": true
           },
           {
-            "type": "string",
-            "description": "username of the user to remove from the quota group",
+            "description": "username of the user to add to the quota group",
             "name": "username",
             "in": "body",
-            "required": true
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
+            }
           }
         ],
         "responses": {
@@ -24603,6 +24607,21 @@
       },
       "x-go-package": "code.gitea.io/gitea/models/quota"
     },
+    "QuotaGroupAddOrRemoveUserOption": {
+      "description": "QuotaGroupAddOrRemoveUserOption represents the options for quota group membership management",
+      "type": "object",
+      "required": [
+        "username"
+      ],
+      "properties": {
+        "username": {
+          "description": "Name of the user to add to or remove from the quota group",
+          "type": "string",
+          "x-go-name": "Username"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
     "QuotaGroupList": {
       "description": "QuotaGroupList is a list of quota groups",
       "type": "array",
@@ -26938,6 +26957,12 @@
       "description": "QuotaGroup",
       "schema": {
         "$ref": "#/definitions/QuotaGroup"
+      }
+    },
+    "QuotaGroupAddOrRemoveUserOption": {
+      "description": "QuotaGroupAddOrRemoveUserOption",
+      "schema": {
+        "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
       }
     },
     "QuotaGroupList": {
