@@ -71,7 +71,6 @@ import (
 
 	"code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
-	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/json"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
@@ -81,6 +80,7 @@ import (
 	web_types "code.gitea.io/gitea/modules/web/types"
 	actions_service "code.gitea.io/gitea/services/actions"
 	"code.gitea.io/gitea/services/context"
+	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 const artifactRouteBase = "/_apis/pipelines/workflows/{run_id}/artifacts"
@@ -242,7 +242,7 @@ func (ar artifactRoutes) uploadArtifact(ctx *ArtifactContext) {
 	}
 
 	// check the owner's quota
-	ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.ActionTask.OwnerID, quota_model.QuotaLimitCategoryAssetArtifacts)
+	ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.ActionTask.OwnerID, quota_service.QuotaLimitCategoryAssetArtifacts)
 	if err != nil {
 		log.Error("CheckFilesQuotaLimitsForUser: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error checking quota")

@@ -6,13 +6,14 @@ package swagger
 import (
 	quota_model "code.gitea.io/gitea/models/quota"
 	api "code.gitea.io/gitea/modules/structs"
+	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 // UserQuota
 // swagger:response UserQuota
 type swaggerResponseUserQuota struct {
 	// in:body
-	Body quota_model.UserQuota `json:"body"`
+	Body quota_service.UserQuota `json:"body"`
 }
 
 // QuotaGroup

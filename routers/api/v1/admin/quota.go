@@ -12,6 +12,7 @@ import (
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/convert"
+	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 // ListQuotaGroups returns all the quota groups
@@ -27,7 +28,7 @@ func ListQuotaGroups(ctx *context.APIContext) {
 	//   "403":
 	//     "$ref": "#/responses/forbidden"
 
-	groups, err := quota_model.ListQuotaGroups(ctx)
+	groups, err := quota_service.ListQuotaGroups(ctx)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "ListQuotaGroups", err)
 		return
@@ -62,7 +63,7 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*quota_model.QuotaGroup)
 
-	err := quota_model.CreateQuotaGroup(ctx, *form)
+	err := quota_service.CreateQuotaGroup(ctx, *form)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "CreateQuotaGroup", err)
 		return
@@ -93,7 +94,7 @@ func ListUsersInQuotaGroup(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	users, err := quota_model.ListUsersInQuotaGroup(ctx, ctx.QuotaGroup.Name)
+	users, err := quota_service.ListUsersInQuotaGroup(ctx, ctx.QuotaGroup.Name)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "ListUsersInQuotaGroup", err)
 		return
@@ -224,12 +225,12 @@ func DeleteQuotaGroup(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	if quota_model.IsQuotaGroupInUse(ctx, ctx.QuotaGroup.Name) {
+	if quota_service.IsQuotaGroupInUse(ctx, ctx.QuotaGroup.Name) {
 		ctx.Error(http.StatusUnprocessableEntity, "DeleteQuotaGroup", "cannot delete quota group that is in use")
 		return
 	}
 
-	err := quota_model.DeleteQuotaGroupByName(ctx, ctx.QuotaGroup.Name)
+	err := quota_service.DeleteQuotaGroupByName(ctx, ctx.QuotaGroup.Name)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "DeleteQuotaGroup", err)
 		return
@@ -289,24 +290,24 @@ func GetUserQuota(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	used, err := quota_model.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
+	used, err := quota_service.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
 		return
 	}
 
-	limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.ContextUser.ID)
+	limits, err := quota_service.GetQuotaLimitsForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser", err)
 	}
 
-	groups, err := quota_model.GetQuotaGroupsForUser(ctx, ctx.ContextUser.ID)
+	groups, err := quota_service.GetQuotaGroupsForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetUserQuota", err)
 		return
 	}
 
-	userQuota := quota_model.UserQuota{
+	userQuota := quota_service.UserQuota{
 		Limits: *limits,
 		Used:   *used,
 	}

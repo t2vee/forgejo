@@ -15,7 +15,6 @@ import (
 	issues_model "code.gitea.io/gitea/models/issues"
 	perm_model "code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
-	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/models/unit"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/git"
@@ -24,6 +23,7 @@ import (
 	"code.gitea.io/gitea/modules/web"
 	gitea_context "code.gitea.io/gitea/services/context"
 	pull_service "code.gitea.io/gitea/services/pull"
+	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 type preReceiveContext struct {
@@ -146,7 +146,7 @@ func (ctx *preReceiveContext) assertQuota() bool {
 		return false
 	}
 
-	ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.user.ID, quota_model.QuotaLimitCategoryGitCode)
+	ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.user.ID, quota_service.QuotaLimitCategoryGitCode)
 	if err != nil {
 		log.Error("IsWithinQuotaLimit: %v", err)
 		ctx.JSON(http.StatusInternalServerError, private.Response{

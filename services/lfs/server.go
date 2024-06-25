@@ -23,7 +23,6 @@ import (
 	git_model "code.gitea.io/gitea/models/git"
 	"code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
-	quota_model "code.gitea.io/gitea/models/quota"
 	repo_model "code.gitea.io/gitea/models/repo"
 	"code.gitea.io/gitea/models/unit"
 	user_model "code.gitea.io/gitea/models/user"
@@ -33,6 +32,7 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/storage"
 	"code.gitea.io/gitea/services/context"
+	quota_service "code.gitea.io/gitea/services/quota"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -181,7 +181,7 @@ func BatchHandler(ctx *context.Context) {
 	}
 
 	if isUpload {
-		ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_model.QuotaLimitCategoryGitLFS)
+		ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_service.QuotaLimitCategoryGitLFS)
 		if err != nil {
 			log.Error("IsWithinQuotaLimit: %v", err)
 			writeStatus(ctx, http.StatusInternalServerError)
@@ -311,7 +311,7 @@ func UploadHandler(ctx *context.Context) {
 	}
 
 	if exists {
-		ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_model.QuotaLimitCategoryGitLFS)
+		ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_service.QuotaLimitCategoryGitLFS)
 		if err != nil {
 			log.Error("IsWithinQuotaLimit: %v", err)
 			writeStatus(ctx, http.StatusInternalServerError)

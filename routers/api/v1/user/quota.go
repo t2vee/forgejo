@@ -6,8 +6,8 @@ package user
 import (
 	"net/http"
 
-	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/services/context"
+	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 // GetQuota returns the quota information for the authenticated user
@@ -21,19 +21,19 @@ func GetQuota(ctx *context.APIContext) {
 	//   "200":
 	//     "$ref": "#/responses/UserQuota"
 
-	used, err := quota_model.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
+	used, err := quota_service.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
+		ctx.Error(http.StatusInternalServerError, "GetQuotaUsedForUser", err)
 		return
 	}
 
-	limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
+	limits, err := quota_service.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser", err)
 		return
 	}
 
-	result := quota_model.UserQuota{
+	result := quota_service.UserQuota{
 		Limits: *limits,
 		Used:   *used,
 	}

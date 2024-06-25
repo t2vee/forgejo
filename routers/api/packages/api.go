@@ -10,7 +10,6 @@ import (
 
 	auth_model "code.gitea.io/gitea/models/auth"
 	"code.gitea.io/gitea/models/perm"
-	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/web"
@@ -37,6 +36,7 @@ import (
 	"code.gitea.io/gitea/routers/api/packages/vagrant"
 	"code.gitea.io/gitea/services/auth"
 	"code.gitea.io/gitea/services/context"
+	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 func reqPackageAccess(accessMode perm.AccessMode) func(ctx *context.Context) {
@@ -77,7 +77,7 @@ func reqPackageAccess(accessMode perm.AccessMode) func(ctx *context.Context) {
 
 func enforcePackagesQuota() func(ctx *context.Context) {
 	return func(ctx *context.Context) {
-		ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_model.QuotaLimitCategoryAssetPackages)
+		ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_service.QuotaLimitCategoryAssetPackages)
 		if err != nil {
 			log.Error("IsWithinQuotaLimit: %v", err)
 			ctx.Error(http.StatusInternalServerError, "Error checking quota")
