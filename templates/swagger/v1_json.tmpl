@@ -481,30 +481,18 @@
         "operationId": "adminCreateQuotaGroup",
         "parameters": [
           {
-            "type": "string",
-            "description": "name of the quota group",
-            "name": "name",
+            "description": "Definition of the quota group",
+            "name": "group",
             "in": "body",
-            "required": true
-          },
-          {
-            "type": "integer",
-            "description": "Git quota limit for the group (in bytes)",
-            "name": "limit_git",
-            "in": "body",
-            "required": true
-          },
-          {
-            "type": "integer",
-            "description": "File asset quota limit for the group (in bytes)",
-            "name": "limit_files",
-            "in": "body",
-            "required": true
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/QuotaGroup"
+            }
           }
         ],
         "responses": {
           "201": {
-            "$ref": "#/responses/created"
+            "$ref": "#/responses/empty"
           },
           "400": {
             "$ref": "#/responses/error"
@@ -650,7 +638,7 @@
         ],
         "responses": {
           "201": {
-            "$ref": "#/responses/created"
+            "$ref": "#/responses/empty"
           },
           "400": {
             "$ref": "#/responses/error"

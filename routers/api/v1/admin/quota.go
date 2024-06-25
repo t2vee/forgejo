@@ -44,24 +44,15 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 	// produces:
 	// - application/json
 	// parameters:
-	// - name: name
+	// - name: group
 	//   in: body
-	//   description: name of the quota group
-	//   type: string
-	//   required: true
-	// - name: limit_git
-	//   in: body
-	//   description: Git quota limit for the group (in bytes)
-	//   type: integer
-	//   required: true
-	// - name: limit_files
-	//   in: body
-	//   description: File asset quota limit for the group (in bytes)
-	//   type: integer
+	//   description: Definition of the quota group
+	//   schema:
+	//     "$ref": "#/definitions/QuotaGroup"
 	//   required: true
 	// responses:
 	//   "201":
-	//     "$ref": "#/responses/created"
+	//     "$ref": "#/responses/empty"
 	//   "400":
 	//     "$ref": "#/responses/error"
 	//   "403":
@@ -130,7 +121,7 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 	//   required: true
 	// responses:
 	//   "201":
-	//     "$ref": "#/responses/created"
+	//     "$ref": "#/responses/empty"
 	//   "400":
 	//     "$ref": "#/responses/error"
 	//   "403":
