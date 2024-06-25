@@ -85,18 +85,23 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 		return nil, err
 	}
 
-	_, err = db.GetEngine(ctx).Select("SUM(size) AS size").
+	_, err = db.GetEngine(ctx).Select("SUM(`attachment`.size) AS size").
 		Table("attachment").
-		Where("uploader_id = ? AND release_id != 0", userID).
+		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
+		Where("`repository`.owner_id = ? AND `attachment`.release_id != 0", userID).
 		Get(&used.Assets.Attachments.Releases)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.GetEngine(ctx).Select("SUM(size) AS size").
+	_, err = db.GetEngine(ctx).Select("SUM(`attachment`.size) AS size").
 		Table("attachment").
-		Where("uploader_id = ? AND release_id == 0", userID).
+		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
+		Where("`repository`.owner_id = ? AND `attachment`.release_id = 0", userID).
 		Get(&used.Assets.Attachments.Issues)
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = db.GetEngine(ctx).Select("SUM(file_compressed_size) AS size").
 		Table("action_artifact").
@@ -106,16 +111,31 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 		return nil, err
 	}
 
+	var floatingPackages int64
 	_, err = db.GetEngine(ctx).Select("SUM(package_blob.size) AS size").
 		Table("package_blob").
 		Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
 		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
 		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
-		Where("`package`.owner_id = ?", userID).
-		Get(&used.Assets.Packages)
+		Where("`package`.owner_id = ? AND `package`.repo_id = 0", userID).
+		Get(&floatingPackages)
 	if err != nil {
 		return nil, err
 	}
+
+	var repoPackages int64
+	_, err = db.GetEngine(ctx).Select("SUM(package_blob.size) AS size").
+		Table("package_blob").
+		Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
+		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
+		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
+		Join("INNER", "`repository`", "`package`.repo_id = `repository`.id").
+		Where("`package`.owner_id = ? AND `package`.repo_id != 0", userID).
+		Get(&repoPackages)
+	if err != nil {
+		return nil, err
+	}
+	used.Assets.Packages = floatingPackages + repoPackages
 
 	return &used, nil
 }
