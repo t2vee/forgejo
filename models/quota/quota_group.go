@@ -126,15 +126,13 @@ func GetQuotaGroupsForUser(ctx context.Context, userID int64) ([]*QuotaGroup, er
 	}
 
 	if len(groups) == 0 {
-		var group QuotaGroup
-		has, err := db.GetEngine(ctx).Where("name = ?", setting.Quota.DefaultGroup).Get(&group)
+		err = db.GetEngine(ctx).Where(builder.In("name", setting.Quota.DefaultGroups)).Find(&groups)
 		if err != nil {
 			return nil, err
 		}
-		if !has {
+		if len(groups) == 0 {
 			return nil, nil
 		}
-		groups = []*QuotaGroup{&group}
 	}
 
 	return groups, nil
