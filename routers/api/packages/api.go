@@ -75,16 +75,16 @@ func reqPackageAccess(accessMode perm.AccessMode) func(ctx *context.Context) {
 	}
 }
 
-func enforceFilesQuota() func(ctx *context.Context) {
+func enforcePackagesQuota() func(ctx *context.Context) {
 	return func(ctx *context.Context) {
-		ok, err := quota_model.CheckFilesQuotaLimitsForUser(ctx, ctx.Doer.ID)
+		ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.Doer.ID, quota_model.QuotaLimitCategoryAssetPackages)
 		if err != nil {
-			log.Error("CheckFilesQuotaLimitsForUser: %v", err)
+			log.Error("IsWithinQuotaLimit: %v", err)
 			ctx.Error(http.StatusInternalServerError, "Error checking quota")
 			return
 		}
 		if !ok {
-			ctx.Error(http.StatusRequestEntityTooLarge, "enforceFilesQuota", "quota exceeded")
+			ctx.Error(http.StatusRequestEntityTooLarge, "enforcePackagesQuota", "quota exceeded")
 			return
 		}
 	}
@@ -127,7 +127,7 @@ func CommonRoutes() *web.Route {
 		r.Group("/alpine", func() {
 			r.Get("/key", alpine.GetRepositoryKey)
 			r.Group("/{branch}/{repository}", func() {
-				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), alpine.UploadPackageFile)
+				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), alpine.UploadPackageFile)
 				r.Group("/{architecture}", func() {
 					r.Get("/APKINDEX.tar.gz", alpine.GetRepositoryFile)
 					r.Group("/{filename}", func() {
@@ -140,12 +140,12 @@ func CommonRoutes() *web.Route {
 		r.Group("/cargo", func() {
 			r.Group("/api/v1/crates", func() {
 				r.Get("", cargo.SearchPackages)
-				r.Put("/new", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), cargo.UploadPackage)
+				r.Put("/new", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), cargo.UploadPackage)
 				r.Group("/{package}", func() {
 					r.Group("/{version}", func() {
 						r.Get("/download", cargo.DownloadPackageFile)
 						r.Delete("/yank", reqPackageAccess(perm.AccessModeWrite), cargo.YankPackage)
-						r.Put("/unyank", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), cargo.UnyankPackage)
+						r.Put("/unyank", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), cargo.UnyankPackage)
 					})
 					r.Get("/owners", cargo.ListOwners)
 				})
@@ -163,7 +163,7 @@ func CommonRoutes() *web.Route {
 				r.Get("/search", chef.EnumeratePackages)
 				r.Group("/cookbooks", func() {
 					r.Get("", chef.EnumeratePackages)
-					r.Post("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), chef.UploadPackage)
+					r.Post("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), chef.UploadPackage)
 					r.Group("/{name}", func() {
 						r.Get("", chef.PackageMetadata)
 						r.Group("/versions/{version}", func() {
@@ -183,7 +183,7 @@ func CommonRoutes() *web.Route {
 			r.Get("/p2/{vendorname}/{projectname}~dev.json", composer.PackageMetadata)
 			r.Get("/p2/{vendorname}/{projectname}.json", composer.PackageMetadata)
 			r.Get("/files/{package}/{version}/{filename}", composer.DownloadPackageFile)
-			r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), composer.UploadPackage)
+			r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), composer.UploadPackage)
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/conan", func() {
 			r.Group("/v1", func() {
@@ -199,14 +199,14 @@ func CommonRoutes() *web.Route {
 						r.Delete("", reqPackageAccess(perm.AccessModeWrite), conan.DeleteRecipeV1)
 						r.Get("/search", conan.SearchPackagesV1)
 						r.Get("/digest", conan.RecipeDownloadURLs)
-						r.Post("/upload_urls", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), conan.RecipeUploadURLs)
+						r.Post("/upload_urls", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), conan.RecipeUploadURLs)
 						r.Get("/download_urls", conan.RecipeDownloadURLs)
 						r.Group("/packages", func() {
 							r.Post("/delete", reqPackageAccess(perm.AccessModeWrite), conan.DeletePackageV1)
 							r.Group("/{package_reference}", func() {
 								r.Get("", conan.PackageSnapshot)
 								r.Get("/digest", conan.PackageDownloadURLs)
-								r.Post("/upload_urls", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), conan.PackageUploadURLs)
+								r.Post("/upload_urls", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), conan.PackageUploadURLs)
 								r.Get("/download_urls", conan.PackageDownloadURLs)
 							})
 						})
@@ -215,11 +215,11 @@ func CommonRoutes() *web.Route {
 				r.Group("/files/{name}/{version}/{user}/{channel}/{recipe_revision}", func() {
 					r.Group("/recipe/{filename}", func() {
 						r.Get("", conan.DownloadRecipeFile)
-						r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), conan.UploadRecipeFile)
+						r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), conan.UploadRecipeFile)
 					})
 					r.Group("/package/{package_reference}/{package_revision}/{filename}", func() {
 						r.Get("", conan.DownloadPackageFile)
-						r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), conan.UploadPackageFile)
+						r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), conan.UploadPackageFile)
 					})
 				}, conan.ExtractPathParameters)
 			})
@@ -244,7 +244,7 @@ func CommonRoutes() *web.Route {
 									r.Get("", conan.ListRecipeRevisionFiles)
 									r.Group("/{filename}", func() {
 										r.Get("", conan.DownloadRecipeFile)
-										r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), conan.UploadRecipeFile)
+										r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), conan.UploadRecipeFile)
 									})
 								})
 								r.Group("/packages", func() {
@@ -260,7 +260,7 @@ func CommonRoutes() *web.Route {
 													r.Get("", conan.ListPackageRevisionFiles)
 													r.Group("/{filename}", func() {
 														r.Get("", conan.DownloadPackageFile)
-														r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), conan.UploadPackageFile)
+														r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), conan.UploadPackageFile)
 													})
 												})
 											})
@@ -297,7 +297,7 @@ func CommonRoutes() *web.Route {
 					conda.DownloadPackageFile(ctx)
 				}
 			})
-			r.Put("/*", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), func(ctx *context.Context) {
+			r.Put("/*", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), func(ctx *context.Context) {
 				m := uploadPattern.FindStringSubmatch(ctx.Params("*"))
 				if len(m) == 0 {
 					ctx.Status(http.StatusNotFound)
@@ -317,7 +317,7 @@ func CommonRoutes() *web.Route {
 					r.Get("/PACKAGES{format}", cran.EnumerateSourcePackages)
 					r.Get("/{filename}", cran.DownloadSourcePackageFile)
 				})
-				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), cran.UploadSourcePackageFile)
+				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), cran.UploadSourcePackageFile)
 			})
 			r.Group("/bin", func() {
 				r.Group("/{platform}/contrib/{rversion}", func() {
@@ -325,7 +325,7 @@ func CommonRoutes() *web.Route {
 					r.Get("/PACKAGES{format}", cran.EnumerateBinaryPackages)
 					r.Get("/{filename}", cran.DownloadBinaryPackageFile)
 				})
-				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), cran.UploadBinaryPackageFile)
+				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), cran.UploadBinaryPackageFile)
 			})
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/debian", func() {
@@ -341,13 +341,13 @@ func CommonRoutes() *web.Route {
 			r.Group("/pool/{distribution}/{component}", func() {
 				r.Get("/{name}_{version}_{architecture}.deb", debian.DownloadPackageFile)
 				r.Group("", func() {
-					r.Put("/upload", enforceFilesQuota(), debian.UploadPackageFile)
+					r.Put("/upload", enforcePackagesQuota(), debian.UploadPackageFile)
 					r.Delete("/{name}/{version}/{architecture}", debian.DeletePackageFile)
 				}, reqPackageAccess(perm.AccessModeWrite))
 			})
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/go", func() {
-			r.Put("/upload", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), goproxy.UploadPackage)
+			r.Put("/upload", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), goproxy.UploadPackage)
 			r.Get("/sumdb/sum.golang.org/supported", func(ctx *context.Context) {
 				ctx.Status(http.StatusNotFound)
 			})
@@ -410,7 +410,7 @@ func CommonRoutes() *web.Route {
 				r.Group("/{filename}", func() {
 					r.Get("", generic.DownloadPackageFile)
 					r.Group("", func() {
-						r.Put("", enforceFilesQuota(), generic.UploadPackage)
+						r.Put("", enforcePackagesQuota(), generic.UploadPackage)
 						r.Delete("", generic.DeletePackageFile)
 					}, reqPackageAccess(perm.AccessModeWrite))
 				})
@@ -419,10 +419,10 @@ func CommonRoutes() *web.Route {
 		r.Group("/helm", func() {
 			r.Get("/index.yaml", helm.Index)
 			r.Get("/{filename}", helm.DownloadPackageFile)
-			r.Post("/api/charts", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), helm.UploadPackage)
+			r.Post("/api/charts", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), helm.UploadPackage)
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/maven", func() {
-			r.Put("/*", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), maven.UploadPackageFile)
+			r.Put("/*", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), maven.UploadPackageFile)
 			r.Get("/*", maven.DownloadPackageFile)
 			r.Head("/*", maven.ProvidePackageFileHeader)
 		}, reqPackageAccess(perm.AccessModeRead))
@@ -443,8 +443,8 @@ func CommonRoutes() *web.Route {
 					r.Get("/{version}/{filename}", nuget.DownloadPackageFile)
 				})
 				r.Group("", func() {
-					r.Put("/", enforceFilesQuota(), nuget.UploadPackage)
-					r.Put("/symbolpackage", enforceFilesQuota(), nuget.UploadSymbolPackage)
+					r.Put("/", enforcePackagesQuota(), nuget.UploadPackage)
+					r.Put("/symbolpackage", enforcePackagesQuota(), nuget.UploadSymbolPackage)
 					r.Delete("/{id}/{version}", nuget.DeletePackage)
 				}, reqPackageAccess(perm.AccessModeWrite))
 				r.Get("/symbols/{filename}/{guid:[0-9a-fA-F]{32}[fF]{8}}/{filename2}", nuget.DownloadSymbolFile)
@@ -466,7 +466,7 @@ func CommonRoutes() *web.Route {
 		r.Group("/npm", func() {
 			r.Group("/@{scope}/{id}", func() {
 				r.Get("", npm.PackageMetadata)
-				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), npm.UploadPackage)
+				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), npm.UploadPackage)
 				r.Group("/-/{version}/{filename}", func() {
 					r.Get("", npm.DownloadPackageFile)
 					r.Delete("/-rev/{revision}", reqPackageAccess(perm.AccessModeWrite), npm.DeletePackageVersion)
@@ -479,7 +479,7 @@ func CommonRoutes() *web.Route {
 			})
 			r.Group("/{id}", func() {
 				r.Get("", npm.PackageMetadata)
-				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), npm.UploadPackage)
+				r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), npm.UploadPackage)
 				r.Group("/-/{version}/{filename}", func() {
 					r.Get("", npm.DownloadPackageFile)
 					r.Delete("/-rev/{revision}", reqPackageAccess(perm.AccessModeWrite), npm.DeletePackageVersion)
@@ -512,7 +512,7 @@ func CommonRoutes() *web.Route {
 			r.Group("/api/packages", func() {
 				r.Group("/versions/new", func() {
 					r.Get("", pub.RequestUpload)
-					r.Post("/upload", enforceFilesQuota(), pub.UploadPackageFile)
+					r.Post("/upload", enforcePackagesQuota(), pub.UploadPackageFile)
 					r.Get("/finalize/{id}/{version}", pub.FinalizePackage)
 				}, reqPackageAccess(perm.AccessModeWrite))
 				r.Group("/{id}", func() {
@@ -523,7 +523,7 @@ func CommonRoutes() *web.Route {
 			})
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/pypi", func() {
-			r.Post("/", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), pypi.UploadPackageFile)
+			r.Post("/", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), pypi.UploadPackageFile)
 			r.Get("/files/{id}/{version}/{filename}", pypi.DownloadPackageFile)
 			r.Get("/simple/{id}", pypi.PackageMetadata)
 		}, reqPackageAccess(perm.AccessModeRead))
@@ -572,7 +572,7 @@ func CommonRoutes() *web.Route {
 					if ctx.Written() {
 						return
 					}
-					enforceFilesQuota()(ctx)
+					enforcePackagesQuota()(ctx)
 					if ctx.Written() {
 						return
 					}
@@ -611,7 +611,7 @@ func CommonRoutes() *web.Route {
 			r.Get("/quick/Marshal.4.8/{filename}", rubygems.ServePackageSpecification)
 			r.Get("/gems/{filename}", rubygems.DownloadPackageFile)
 			r.Group("/api/v1/gems", func() {
-				r.Post("/", enforceFilesQuota(), rubygems.UploadPackageFile)
+				r.Post("/", enforcePackagesQuota(), rubygems.UploadPackageFile)
 				r.Delete("/yank", rubygems.DeletePackage)
 			}, reqPackageAccess(perm.AccessModeWrite))
 		}, reqPackageAccess(perm.AccessModeRead))
@@ -623,7 +623,7 @@ func CommonRoutes() *web.Route {
 				}, swift.CheckAcceptMediaType(swift.AcceptJSON))
 				r.Group("/{version}", func() {
 					r.Get("/Package.swift", swift.CheckAcceptMediaType(swift.AcceptSwift), swift.DownloadManifest)
-					r.Put("", reqPackageAccess(perm.AccessModeWrite), swift.CheckAcceptMediaType(swift.AcceptJSON), enforceFilesQuota(), swift.UploadPackageFile)
+					r.Put("", reqPackageAccess(perm.AccessModeWrite), swift.CheckAcceptMediaType(swift.AcceptJSON), enforcePackagesQuota(), swift.UploadPackageFile)
 					r.Get("", func(ctx *context.Context) {
 						// Can't use normal routes here: https://github.com/go-chi/chi/issues/781
 
@@ -659,7 +659,7 @@ func CommonRoutes() *web.Route {
 				r.Get("", vagrant.EnumeratePackageVersions)
 				r.Group("/{version}/{provider}", func() {
 					r.Get("", vagrant.DownloadPackageFile)
-					r.Put("", reqPackageAccess(perm.AccessModeWrite), enforceFilesQuota(), vagrant.UploadPackageFile)
+					r.Put("", reqPackageAccess(perm.AccessModeWrite), enforcePackagesQuota(), vagrant.UploadPackageFile)
 				})
 			})
 		}, reqPackageAccess(perm.AccessModeRead))

@@ -33,7 +33,7 @@ func ListQuotaGroups(ctx *context.APIContext) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, convert.ToQuotaGroupList(ctx, groups))
+	ctx.JSON(http.StatusOK, groups)
 }
 
 // CreateQuotaGroup creates a new quota group
@@ -69,7 +69,7 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	form := web.GetForm(ctx).(*api.CreateQuotaGroupOption)
+	form := web.GetForm(ctx).(*quota_model.QuotaGroup)
 
 	err := quota_model.CreateQuotaGroup(ctx, *form)
 	if err != nil {
@@ -268,7 +268,7 @@ func GetQuotaGroup(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	ctx.JSON(http.StatusOK, convert.ToQuotaGroup(ctx, ctx.QuotaGroup))
+	ctx.JSON(http.StatusOK, ctx.QuotaGroup)
 }
 
 // GetUserQuota return information about a user's quota
@@ -296,14 +296,9 @@ func GetUserQuota(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.ContextUser.ID)
+	used, err := quota_model.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
-		return
-	}
-	fileUse, err := quota_model.GetFilesUseForUser(ctx, ctx.ContextUser.ID)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser", err)
 		return
 	}
 
@@ -318,11 +313,9 @@ func GetUserQuota(ctx *context.APIContext) {
 		return
 	}
 
-	userQuota := api.UserQuota{
-		GitLimit:  limits.LimitGit,
-		GitUse:    gitUse,
-		FileLimit: limits.LimitFiles,
-		FileUse:   fileUse,
+	userQuota := quota_model.UserQuota{
+		Limits: *limits,
+		Used:   *used,
 	}
 	if groups != nil {
 		userQuota.Groups = make([]string, len(groups))

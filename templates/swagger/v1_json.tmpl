@@ -24564,20 +24564,48 @@
       "x-go-package": "code.gitea.io/gitea/modules/structs"
     },
     "QuotaGroup": {
-      "description": "QuotaGroup represents a quota group",
+      "description": "QuotaGroup represents a quota group\nswagger::model",
       "type": "object",
       "properties": {
-        "limit_files": {
-          "description": "File storage limit for the group",
+        "limit_asset_artifacts": {
           "type": "integer",
           "format": "int64",
-          "x-go-name": "LimitFiles"
+          "x-go-name": "LimitAssetArtifacts"
         },
-        "limit_git": {
-          "description": "Git storage limit for the group",
+        "limit_asset_attachments": {
           "type": "integer",
           "format": "int64",
-          "x-go-name": "LimitGit"
+          "x-go-name": "LimitAssetAttachments"
+        },
+        "limit_asset_packages": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitAssetPackages"
+        },
+        "limit_asset_total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitAssetTotal"
+        },
+        "limit_git_code": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitGitCode"
+        },
+        "limit_git_lfs": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitGitLFS"
+        },
+        "limit_git_total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitGitTotal"
+        },
+        "limit_total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "LimitTotal"
         },
         "name": {
           "description": "Name of the quota group",
@@ -24585,7 +24613,7 @@
           "x-go-name": "Name"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/modules/structs"
+      "x-go-package": "code.gitea.io/gitea/models/quota"
     },
     "QuotaGroupList": {
       "description": "QuotaGroupList is a list of quota groups",
@@ -24593,7 +24621,71 @@
       "items": {
         "$ref": "#/definitions/QuotaGroup"
       },
-      "x-go-package": "code.gitea.io/gitea/modules/structs"
+      "x-go-package": "code.gitea.io/gitea/models/quota"
+    },
+    "QuotaLimits": {
+      "type": "object",
+      "properties": {
+        "LimitAssetArtifacts": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitAssetAttachments": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitAssetPackages": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitAssetTotal": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitGitCode": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitGitLFS": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitGitTotal": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "LimitTotal": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/models/quota"
+    },
+    "QuotaUsed": {
+      "type": "object",
+      "properties": {
+        "AssetArtifacts": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "AssetAttachments": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "AssetPackages": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "GitCode": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "GitLFS": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/models/quota"
     },
     "Reaction": {
       "description": "Reaction contain one reaction",
@@ -25871,40 +25963,21 @@
       "description": "UserQuota represents a user's quota info",
       "type": "object",
       "properties": {
-        "file_limit": {
-          "description": "File storage limit for the user",
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "FileLimit"
-        },
-        "file_use": {
-          "description": "File storage used by the user (attachments, artifacts, and packages)",
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "FileUse"
-        },
-        "git_limit": {
-          "description": "Git storage limit for the user (including LFS)",
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "GitLimit"
-        },
-        "git_use": {
-          "description": "Git storage used by the user (including LFS)",
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "GitUse"
-        },
         "groups": {
-          "description": "Quota groups the user is part of",
           "type": "array",
           "items": {
             "type": "string"
           },
           "x-go-name": "Groups"
+        },
+        "limits": {
+          "$ref": "#/definitions/QuotaLimits"
+        },
+        "used": {
+          "$ref": "#/definitions/QuotaUsed"
         }
       },
-      "x-go-package": "code.gitea.io/gitea/modules/structs"
+      "x-go-package": "code.gitea.io/gitea/models/quota"
     },
     "UserSettings": {
       "description": "UserSettings represents user settings",

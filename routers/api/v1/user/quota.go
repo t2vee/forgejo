@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	quota_model "code.gitea.io/gitea/models/quota"
-	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/services/context"
 )
 
@@ -22,14 +21,9 @@ func GetQuota(ctx *context.APIContext) {
 	//   "200":
 	//     "$ref": "#/responses/UserQuota"
 
-	gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.Doer.ID)
+	used, err := quota_model.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
-		return
-	}
-	fileUse, err := quota_model.GetFilesUseForUser(ctx, ctx.Doer.ID)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetFilesUseForUser", err)
 		return
 	}
 
@@ -39,11 +33,10 @@ func GetQuota(ctx *context.APIContext) {
 		return
 	}
 
-	userQuota := api.UserQuota{
-		GitLimit:  limits.LimitGit,
-		GitUse:    gitUse,
-		FileLimit: limits.LimitFiles,
-		FileUse:   fileUse,
+	result := quota_model.UserQuota{
+		Limits: *limits,
+		Used:   *used,
 	}
-	ctx.JSON(http.StatusOK, &userQuota)
+
+	ctx.JSON(http.StatusOK, &result)
 }

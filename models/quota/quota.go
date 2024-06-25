@@ -9,7 +9,6 @@ import (
 	"code.gitea.io/gitea/models/db"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/setting"
-	api "code.gitea.io/gitea/modules/structs"
 
 	"xorm.io/builder"
 )
@@ -20,11 +19,35 @@ const (
 	QuotaKindUser QuotaKind = iota
 )
 
+type QuotaLimitCategory int //revive:disable-line:exported
+
+const (
+	QuotaLimitCategoryGitTotal QuotaLimitCategory = iota
+	QuotaLimitCategoryGitCode
+	QuotaLimitCategoryGitLFS
+	QuotaLimitCategoryAssetAttachments
+	QuotaLimitCategoryAssetArtifacts
+	QuotaLimitCategoryAssetPackages
+	QuotaLimitCategoryWiki
+)
+
+// QuotaGroup represents a quota group
+// swagger::model
 type QuotaGroup struct { //revive:disable-line:exported
-	ID         int64  `xorm:"pk autoincr"`
-	Name       string `xorm:"UNIQUE NOT NULL"`
-	LimitGit   int64
-	LimitFiles int64
+	ID int64 `json:"-" xorm:"pk autoincr"`
+	// Name of the quota group
+	Name string `json:"name" xorm:"UNIQUE NOT NULL" binding:"Required"`
+
+	LimitTotal *int64 `json:"limit_total,omitempty"`
+
+	LimitGitTotal *int64 `json:"limit_git_total,omitempty"`
+	LimitGitCode  *int64 `json:"limit_git_code,omitempty"`
+	LimitGitLFS   *int64 `json:"limit_git_lfs,omitempty"`
+
+	LimitAssetTotal       *int64 `json:"limit_asset_total,omitempty"`
+	LimitAssetAttachments *int64 `json:"limit_asset_attachments,omitempty"`
+	LimitAssetPackages    *int64 `json:"limit_asset_packages,omitempty"`
+	LimitAssetArtifacts   *int64 `json:"limit_asset_artifacts,omitempty"`
 }
 
 type QuotaMapping struct { //revive:disable-line:exported
@@ -35,8 +58,108 @@ type QuotaMapping struct { //revive:disable-line:exported
 }
 
 type QuotaLimits struct { //revive:disable-line:exported
-	LimitGit   int64
-	LimitFiles int64
+	LimitTotal *int64
+
+	LimitGitTotal *int64
+	LimitGitCode  *int64
+	LimitGitLFS   *int64
+
+	LimitAssetTotal       *int64
+	LimitAssetAttachments *int64
+	LimitAssetPackages    *int64
+	LimitAssetArtifacts   *int64
+}
+
+type QuotaUsed struct { //revive:disable-line:exported
+	GitCode int64
+	GitLFS  int64
+
+	AssetAttachments int64
+	AssetPackages    int64
+	AssetArtifacts   int64
+}
+
+func (u *QuotaUsed) Total() int64 {
+	return u.Git() + u.Assets()
+}
+
+func (u *QuotaUsed) Git() int64 {
+	return u.GitCode + u.GitLFS
+}
+
+func (u *QuotaUsed) Assets() int64 {
+	return u.AssetAttachments + u.AssetPackages + u.AssetArtifacts
+}
+
+func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
+	switch category {
+	case QuotaLimitCategoryGitTotal:
+		return u.Git()
+	case QuotaLimitCategoryGitCode:
+		return u.GitCode
+	case QuotaLimitCategoryGitLFS:
+		return u.GitLFS
+
+	case QuotaLimitCategoryAssetAttachments:
+		return u.AssetAttachments
+	case QuotaLimitCategoryAssetArtifacts:
+		return u.AssetArtifacts
+	case QuotaLimitCategoryAssetPackages:
+		return u.AssetPackages
+
+	case QuotaLimitCategoryWiki:
+		return 0
+	}
+
+	return 0
+}
+
+func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
+	pick := func(specificTotal *int64, specifics ...*int64) int64 {
+		if l.LimitTotal != nil {
+			return *l.LimitTotal
+		}
+		if specificTotal != nil {
+			return *specificTotal
+		}
+
+		var (
+			sum   int64
+			found bool
+		)
+
+		for _, num := range specifics {
+			if num != nil {
+				sum += *num
+				found = true
+			}
+		}
+		if !found {
+			return -1
+		}
+		return sum
+	}
+
+	switch category {
+	case QuotaLimitCategoryGitCode:
+		return pick(l.LimitGitTotal, l.LimitGitCode)
+	case QuotaLimitCategoryGitLFS:
+		return pick(l.LimitGitTotal, l.LimitGitLFS)
+	case QuotaLimitCategoryGitTotal:
+		return pick(l.LimitGitTotal, l.LimitGitCode, l.LimitGitLFS)
+
+	case QuotaLimitCategoryAssetAttachments:
+		return pick(l.LimitAssetTotal, l.LimitAssetAttachments)
+	case QuotaLimitCategoryAssetArtifacts:
+		return pick(l.LimitAssetTotal, l.LimitAssetArtifacts)
+	case QuotaLimitCategoryAssetPackages:
+		return pick(l.LimitAssetTotal, l.LimitAssetPackages)
+
+	case QuotaLimitCategoryWiki:
+		return pick(nil, nil)
+	}
+
+	return pick(nil, nil)
 }
 
 func init() {
@@ -50,12 +173,7 @@ func ListQuotaGroups(ctx context.Context) ([]*QuotaGroup, error) {
 	return groups, err
 }
 
-func CreateQuotaGroup(ctx context.Context, opts api.CreateQuotaGroupOption) error {
-	group := QuotaGroup{
-		Name:       opts.Name,
-		LimitGit:   opts.LimitGit,
-		LimitFiles: opts.LimitFiles,
-	}
+func CreateQuotaGroup(ctx context.Context, group QuotaGroup) error {
 	_, err := db.GetEngine(ctx).Insert(group)
 	return err
 }
@@ -156,52 +274,47 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 	if err != nil {
 		return nil, err
 	}
-	limits := QuotaLimits{
-		LimitGit:   -1,
-		LimitFiles: -1,
-	}
+	limits := QuotaLimits{}
 	if len(groups) > 0 {
-		var maxGit int64 = 0
-		var maxFiles int64 = 0
-
-		maxOf := func(old, new int64) int64 {
-			if new == -1 || old == -1 {
-				return -1
+		var minusOne int64 = -1
+		maxOf := func(old, new *int64) *int64 {
+			if old == nil && new == nil {
+				return nil
 			}
-			return max(old, new)
+			if old == nil && new != nil {
+				return new
+			}
+			if old != nil && new == nil {
+				return old
+			}
+
+			if *new == -1 || *old == -1 {
+				return &minusOne
+			}
+
+			if *new > *old {
+				return new
+			} else {
+				return old
+			}
 		}
 
 		for _, group := range groups {
-			maxGit = maxOf(maxGit, group.LimitGit)
-			maxFiles = maxOf(maxFiles, group.LimitFiles)
-		}
+			limits.LimitGitTotal = maxOf(limits.LimitGitTotal, group.LimitGitTotal)
+			limits.LimitGitCode = maxOf(limits.LimitGitCode, group.LimitGitCode)
+			limits.LimitGitLFS = maxOf(limits.LimitGitLFS, group.LimitGitLFS)
 
-		limits = QuotaLimits{
-			LimitGit:   maxGit,
-			LimitFiles: maxFiles,
+			limits.LimitAssetTotal = maxOf(limits.LimitAssetTotal, group.LimitAssetTotal)
+			limits.LimitAssetAttachments = maxOf(limits.LimitAssetAttachments, group.LimitAssetAttachments)
+			limits.LimitAssetPackages = maxOf(limits.LimitAssetPackages, group.LimitAssetPackages)
+			limits.LimitAssetArtifacts = maxOf(limits.LimitAssetArtifacts, group.LimitAssetArtifacts)
 		}
 	}
+
 	return &limits, nil
 }
 
-func checkQuota(ctx context.Context, userID, limit int64, getUsed func(context.Context, int64) (int64, error)) (bool, error) {
-	if limit == -1 {
-		return true, nil
-	}
-	if limit == 0 {
-		return false, nil
-	}
-	used, err := getUsed(ctx, userID)
-	if err != nil {
-		return false, err
-	}
-	if limit < used {
-		return false, nil
-	}
-	return true, nil
-}
-
-func CheckFilesQuotaLimitsForUser(ctx context.Context, userID int64) (bool, error) {
+func IsWithinQuotaLimit(ctx context.Context, userID int64, category QuotaLimitCategory) (bool, error) {
 	if !setting.Quota.Enabled {
 		return true, nil
 	}
@@ -210,67 +323,86 @@ func CheckFilesQuotaLimitsForUser(ctx context.Context, userID int64) (bool, erro
 	if err != nil {
 		return false, err
 	}
-
-	return checkQuota(ctx, userID, limits.LimitFiles, GetFilesUseForUser)
-}
-
-func CheckGitQuotaLimitsForUser(ctx context.Context, userID int64) (bool, error) {
-	if !setting.Quota.Enabled {
-		return true, nil
-	}
-
-	limits, err := GetQuotaLimitsForUser(ctx, userID)
+	used, err := GetQuotaUsedForUser(ctx, userID)
 	if err != nil {
 		return false, err
 	}
 
-	return checkQuota(ctx, userID, limits.LimitGit, GetGitUseForUser)
+	// Determine the comparison participants
+	itemLimit := limits.getLimitForCategory(category)
+	if itemLimit == -1 {
+		return true, nil
+	}
+	if itemLimit == 0 {
+		return false, nil
+	}
+
+	itemUsed := used.getUsedForCategory(category)
+
+	return itemUsed < itemLimit, nil
 }
 
-func GetGitUseForUser(ctx context.Context, userID int64) (int64, error) {
-	var size int64
-	_, err := db.GetEngine(ctx).Select("SUM(size) AS size").
+func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {
+	type gitSizes struct {
+		GitCode int64
+		GitLFS  int64
+	}
+	var gitUsed gitSizes
+	_, err := db.GetEngine(ctx).Select("SUM(git_size) AS git_code, SUM(lfs_size) AS git_lfs").
 		Table("repository").
 		Where("owner_id = ?", userID).
-		Get(&size)
-	return size, err
-}
+		Get(&gitUsed)
+	if err != nil {
+		return nil, err
+	}
 
-func GetFilesUseForUser(ctx context.Context, userID int64) (int64, error) {
-	var totalSize int64
-	var size int64
-
-	_, err := db.GetEngine(ctx).Select("SUM(size) AS size").
+	var attachmentSize int64
+	_, err = db.GetEngine(ctx).Select("SUM(size) AS size").
 		Table("attachment").
 		Where("uploader_id = ?", userID).
-		Get(&size)
+		Get(&attachmentSize)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	totalSize += size
 
-	size = 0
+	var artifactSize int64
 	_, err = db.GetEngine(ctx).Select("SUM(file_compressed_size) AS size").
 		Table("action_artifact").
 		Where("owner_id = ?", userID).
-		Get(&size)
+		Get(&artifactSize)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	totalSize += size
 
-	size = 0
+	var packageSize int64
 	_, err = db.GetEngine(ctx).Select("SUM(package_blob.size) AS size").
 		Table("package_blob").
 		Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
 		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
 		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
 		Where("`package`.owner_id = ?", userID).
-		Get(&size)
+		Get(&packageSize)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	totalSize += size
 
-	return totalSize, nil
+	return &QuotaUsed{
+		GitCode:          gitUsed.GitCode,
+		GitLFS:           gitUsed.GitLFS,
+		AssetAttachments: attachmentSize,
+		AssetArtifacts:   artifactSize,
+		AssetPackages:    packageSize,
+	}, nil
 }
+
+// UserQuota represents a user's quota info
+// swagger:model
+type UserQuota struct {
+	Limits QuotaLimits `json:"limits"`
+	Used   QuotaUsed   `json:"used"`
+	Groups []string    `json:"groups,omitempty"`
+}
+
+// QuotaGroupList is a list of quota groups
+// swagger:model
+type QuotaGroupList []*QuotaGroup

@@ -21,7 +21,6 @@ import (
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/private"
-	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/web"
 	gitea_context "code.gitea.io/gitea/services/context"
 	pull_service "code.gitea.io/gitea/services/pull"
@@ -142,39 +141,20 @@ func (ctx *preReceiveContext) assertPushOptions() bool {
 	return true
 }
 
-func (ctx *preReceiveContext) checkQuota() bool {
-	if !setting.Quota.Enabled {
-		return true
-	}
-
+func (ctx *preReceiveContext) assertQuota() bool {
 	if !ctx.loadPusherAndPermission() {
 		return false
 	}
 
-	limits, err := quota_model.GetQuotaLimitsForUser(ctx, ctx.user.ID)
+	ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.user.ID, quota_model.QuotaLimitCategoryGitCode)
 	if err != nil {
+		log.Error("IsWithinQuotaLimit: %v", err)
+		ctx.JSON(http.StatusInternalServerError, private.Response{
+			UserMsg: "Error checking user quota",
+		})
 		return false
 	}
-
-	if limits.LimitGit == -1 {
-		return true
-	}
-	if limits.LimitGit == 0 {
-		return false
-	}
-	gitUse, err := quota_model.GetGitUseForUser(ctx, ctx.user.ID)
-	if err != nil {
-		return false
-	}
-	if limits.LimitGit < gitUse {
-		return false
-	}
-
-	return true
-}
-
-func (ctx *preReceiveContext) assertQuota() bool {
-	if ok := ctx.checkQuota(); !ok {
+	if !ok {
 		ctx.JSON(http.StatusRequestEntityTooLarge, private.Response{
 			UserMsg: "Quota exceeded",
 		})

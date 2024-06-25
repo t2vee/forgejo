@@ -46,30 +46,15 @@ func (ctx *Context) QuotaExceeded() {
 	ctx.HTML(http.StatusRequestEntityTooLarge, base.TplName("status/413"))
 }
 
-func EnforceGitQuotaWeb() func(ctx *Context) {
+func EnforceQuotaWeb(category quota_model.QuotaLimitCategory) func(ctx *Context) {
 	return func(ctx *Context) {
-		ok, err := quota_model.CheckGitQuotaLimitsForUser(ctx, ctx.Doer.ID)
+		ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.Doer.ID, category)
 		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "CheckGitQuotaLimitsForUser")
+			ctx.Error(http.StatusInternalServerError, "IsWithinQuotaLimit")
 			return
 		}
 		if !ok {
 			ctx.QuotaExceeded()
-			return
-		}
-	}
-}
-
-func EnforceFilesQuotaWeb() func(ctx *Context) {
-	return func(ctx *Context) {
-		ok, err := quota_model.CheckFilesQuotaLimitsForUser(ctx, ctx.Doer.ID)
-		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "CheckFilesQuotaLimitsForUser")
-			return
-		}
-		if !ok {
-			ctx.QuotaExceeded()
-			return
 		}
 	}
 }
@@ -86,30 +71,15 @@ func (ctx *APIContext) QuotaExceeded() {
 	})
 }
 
-func EnforceFilesQuotaAPI() func(ctx *APIContext) {
+func EnforceQuotaAPI(category quota_model.QuotaLimitCategory) func(ctx *APIContext) {
 	return func(ctx *APIContext) {
-		ok, err := quota_model.CheckFilesQuotaLimitsForUser(ctx, ctx.Doer.ID)
+		ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.Doer.ID, category)
 		if err != nil {
 			ctx.InternalServerError(err)
 			return
 		}
 		if !ok {
 			ctx.QuotaExceeded()
-			return
-		}
-	}
-}
-
-func EnforceGitQuotaAPI() func(ctx *APIContext) {
-	return func(ctx *APIContext) {
-		ok, err := quota_model.CheckGitQuotaLimitsForUser(ctx, ctx.Doer.ID)
-		if err != nil {
-			ctx.InternalServerError(err)
-			return
-		}
-		if !ok {
-			ctx.QuotaExceeded()
-			return
 		}
 	}
 }
