@@ -24,7 +24,12 @@ type QuotaUsed struct { //revive:disable-line:exported
 	// Space used by the user for various assets
 	Assets struct {
 		// Space used by the user's attachments
-		Attachments int64 `json:"attachments"`
+		Attachments struct {
+			// Space used by the user's release attachments
+			Releases int64 `json:"releases"`
+			// Space used by the user's issue & comment attachments
+			Issues int64 `json:"issues"`
+		} `json:"attachments"`
 		// Space used by the user's artifacts
 		Artifacts int64 `json:"artifacts"`
 		// Space used by the user's packages
@@ -41,7 +46,7 @@ func (u *QuotaUsed) GitSize() int64 {
 }
 
 func (u *QuotaUsed) AssetsSize() int64 {
-	return u.Assets.Attachments + u.Assets.Packages + u.Assets.Artifacts
+	return u.Assets.Attachments.Releases + u.Assets.Attachments.Issues + u.Assets.Packages + u.Assets.Artifacts
 }
 
 func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
@@ -53,8 +58,10 @@ func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
 	case QuotaLimitCategoryGitLFS:
 		return u.Git.LFS
 
-	case QuotaLimitCategoryAssetAttachments:
-		return u.Assets.Attachments
+	case QuotaLimitCategoryAssetAttachmentsReleases:
+		return u.Assets.Attachments.Releases
+	case QuotaLimitCategoryAssetAttachmentsIssues:
+		return u.Assets.Attachments.Issues
 	case QuotaLimitCategoryAssetArtifacts:
 		return u.Assets.Artifacts
 	case QuotaLimitCategoryAssetPackages:
@@ -80,11 +87,16 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 
 	_, err = db.GetEngine(ctx).Select("SUM(size) AS size").
 		Table("attachment").
-		Where("uploader_id = ?", userID).
-		Get(&used.Assets.Attachments)
+		Where("uploader_id = ? AND release_id != 0", userID).
+		Get(&used.Assets.Attachments.Releases)
 	if err != nil {
 		return nil, err
 	}
+
+	_, err = db.GetEngine(ctx).Select("SUM(size) AS size").
+		Table("attachment").
+		Where("uploader_id = ? AND release_id == 0", userID).
+		Get(&used.Assets.Attachments.Issues)
 
 	_, err = db.GetEngine(ctx).Select("SUM(file_compressed_size) AS size").
 		Table("action_artifact").

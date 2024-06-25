@@ -1179,9 +1179,9 @@ func Routes() *web.Route {
 							Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteRelease)
 						m.Group("/assets", func() {
 							m.Combo("").Get(repo.ListReleaseAttachments).
-								Post(reqToken(), reqRepoWriter(unit.TypeReleases), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachments), repo.CreateReleaseAttachment)
+								Post(reqToken(), reqRepoWriter(unit.TypeReleases), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsReleases), repo.CreateReleaseAttachment)
 							m.Combo("/{attachment_id}").Get(repo.GetReleaseAttachment).
-								Patch(reqToken(), reqRepoWriter(unit.TypeReleases), bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachments), repo.EditReleaseAttachment).
+								Patch(reqToken(), reqRepoWriter(unit.TypeReleases), bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsReleases), repo.EditReleaseAttachment).
 								Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteReleaseAttachment)
 						})
 					})
@@ -1334,10 +1334,10 @@ func Routes() *web.Route {
 							m.Group("/assets", func() {
 								m.Combo("").
 									Get(repo.ListIssueCommentAttachments).
-									Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachments), repo.CreateIssueCommentAttachment)
+									Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.CreateIssueCommentAttachment)
 								m.Combo("/{attachment_id}").
 									Get(repo.GetIssueCommentAttachment).
-									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachments), repo.EditIssueCommentAttachment).
+									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.EditIssueCommentAttachment).
 									Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueCommentAttachment)
 							}, mustEnableAttachments)
 						}, commentAssignment(":id"))
@@ -1386,10 +1386,10 @@ func Routes() *web.Route {
 						m.Group("/assets", func() {
 							m.Combo("").
 								Get(repo.ListIssueAttachments).
-								Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachments), repo.CreateIssueAttachment)
+								Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.CreateIssueAttachment)
 							m.Combo("/{attachment_id}").
 								Get(repo.GetIssueAttachment).
-								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachments), repo.EditIssueAttachment).
+								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.EditIssueAttachment).
 								Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueAttachment)
 						}, mustEnableAttachments)
 						m.Combo("/dependencies").

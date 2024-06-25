@@ -118,7 +118,6 @@ func listMyRepos(ctx *context.APIContext, bySize bool) {
 	ctx.SetLinkHeader(int(count), opts.ListOptions.PageSize)
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, &results)
-
 }
 
 // ListMyRepos - list the repositories you own or have access to.

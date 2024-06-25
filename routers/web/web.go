@@ -1165,7 +1165,7 @@ func registerRoutes(m *web.Route) {
 					m.Post("/add", repo.AddDependency)
 					m.Post("/delete", repo.RemoveDependency)
 				})
-				m.Combo("/comments").Post(repo.MustAllowUserComment, web.Bind(forms.CreateCommentForm{}), repo.NewComment)
+				m.Combo("/comments").Post(repo.MustAllowUserComment, web.Bind(forms.CreateCommentForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.NewComment)
 				m.Group("/times", func() {
 					m.Post("/add", web.Bind(forms.AddTimeManuallyForm{}), repo.AddTimeManually)
 					m.Post("/{timeid}/delete", repo.DeleteTime)
@@ -1196,7 +1196,7 @@ func registerRoutes(m *web.Route) {
 			m.Post("/status", reqRepoIssuesOrPullsWriter, repo.UpdateIssueStatus)
 			m.Post("/delete", reqRepoAdmin, repo.BatchDeleteIssues)
 			m.Post("/resolve_conversation", reqRepoIssuesOrPullsReader, repo.SetShowOutdatedComments, repo.UpdateResolveConversation)
-			m.Post("/attachments", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachments), repo.UploadIssueAttachment)
+			m.Post("/attachments", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.UploadIssueAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 			m.Delete("/unpin/{index}", reqRepoAdmin, repo.IssueUnpin)
 			m.Post("/move_pin", reqRepoAdmin, repo.IssuePinMove)
@@ -1291,7 +1291,7 @@ func registerRoutes(m *web.Route) {
 			m.Get("/new", repo.NewRelease)
 			m.Post("/new", web.Bind(forms.NewReleaseForm{}), repo.NewReleasePost)
 			m.Post("/delete", repo.DeleteRelease)
-			m.Post("/attachments", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachments), repo.UploadReleaseAttachment)
+			m.Post("/attachments", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachmentsReleases), repo.UploadReleaseAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 		}, reqSignIn, repo.MustBeNotEmpty, context.RepoMustNotBeArchived(), reqRepoReleaseWriter, context.RepoRef())
 		m.Group("/releases", func() {

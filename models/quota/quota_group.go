@@ -24,10 +24,12 @@ type QuotaGroup struct { //revive:disable-line:exported
 	LimitGitCode  *int64 `json:"limit_git_code,omitempty"`
 	LimitGitLFS   *int64 `json:"limit_git_lfs,omitempty"`
 
-	LimitAssetTotal       *int64 `json:"limit_asset_total,omitempty"`
-	LimitAssetAttachments *int64 `json:"limit_asset_attachments,omitempty"`
-	LimitAssetPackages    *int64 `json:"limit_asset_packages,omitempty"`
-	LimitAssetArtifacts   *int64 `json:"limit_asset_artifacts,omitempty"`
+	LimitAssetTotal               *int64 `json:"limit_asset_total,omitempty"`
+	LimitAssetAttachmentsTotal    *int64 `json:"limit_asset_attachments_total,omitempty"`
+	LimitAssetAttachmentsReleases *int64 `json:"limit_asset_attachments_releases,omitempty"`
+	LimitAssetAttachmentsIssues   *int64 `json:"limit_asset_attachments_issues,omitempty"`
+	LimitAssetPackages            *int64 `json:"limit_asset_packages,omitempty"`
+	LimitAssetArtifacts           *int64 `json:"limit_asset_artifacts,omitempty"`
 }
 
 // QuotaGroupList is a list of quota groups

@@ -15,7 +15,8 @@ const (
 	QuotaLimitCategoryGitTotal QuotaLimitCategory = iota
 	QuotaLimitCategoryGitCode
 	QuotaLimitCategoryGitLFS
-	QuotaLimitCategoryAssetAttachments
+	QuotaLimitCategoryAssetAttachmentsReleases
+	QuotaLimitCategoryAssetAttachmentsIssues
 	QuotaLimitCategoryAssetArtifacts
 	QuotaLimitCategoryAssetPackages
 	QuotaLimitCategoryWiki
@@ -47,11 +48,22 @@ type QuotaLimitsAssets struct { //revive:disable-line:exported
 	// The total amount of asset space available to the user
 	Total *int64 `json:"total,omitempty"`
 	// Space available to the user for attachments
-	Attachments *int64 `json:"attachments,omitempty"`
+	Attachments *QuotaLimitsAttachments `json:"attachments,omitempty"`
 	// Space available to the user for artifacts
 	Artifacts *int64 `json:"artifacts,omitempty"`
 	// Space available to the user for packages
 	Packages *int64 `json:"packages,omitempty"`
+}
+
+// QuotaLimitsAttachments represents the attachment related limits affecting a user
+// swagger:model
+type QuotaLimitsAttachments struct { //revive:disable-line:exported
+	// Total amount of attachment space available to the user
+	Total *int64 `json:"total,omitempty"`
+	// Space available to the user for release attachments
+	Releases *int64 `json:"releases,omitempty"`
+	// Space available to the user for issue & comment attachments
+	Issues *int64 `json:"issues,omitempty"`
 }
 
 func (s *QuotaLimitsGit) IsEmpty() bool {
@@ -60,6 +72,10 @@ func (s *QuotaLimitsGit) IsEmpty() bool {
 
 func (s *QuotaLimitsAssets) IsEmpty() bool {
 	return s.Total == nil && s.Attachments == nil && s.Artifacts == nil && s.Packages == nil
+}
+
+func (s *QuotaLimitsAttachments) IsEmpty() bool {
+	return s.Total == nil && s.Releases == nil && s.Issues == nil
 }
 
 func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
@@ -87,6 +103,12 @@ func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 		}
 		return sum
 	}
+	pickTotal := func(outer, inner *int64) *int64 {
+		if outer != nil {
+			return outer
+		}
+		return inner
+	}
 
 	switch category {
 	case QuotaLimitCategoryGitCode:
@@ -96,8 +118,10 @@ func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 	case QuotaLimitCategoryGitTotal:
 		return pick(l.Git.Total, l.Git.Code, l.Git.LFS)
 
-	case QuotaLimitCategoryAssetAttachments:
-		return pick(l.Assets.Total, l.Assets.Attachments)
+	case QuotaLimitCategoryAssetAttachmentsReleases:
+		return pick(pickTotal(l.Assets.Total, l.Assets.Attachments.Total), l.Assets.Attachments.Releases)
+	case QuotaLimitCategoryAssetAttachmentsIssues:
+		return pick(pickTotal(l.Assets.Total, l.Assets.Attachments.Total), l.Assets.Attachments.Issues)
 	case QuotaLimitCategoryAssetArtifacts:
 		return pick(l.Assets.Total, l.Assets.Artifacts)
 	case QuotaLimitCategoryAssetPackages:
@@ -116,8 +140,10 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		return nil, err
 	}
 	limits := QuotaLimits{
-		Git:    &QuotaLimitsGit{},
-		Assets: &QuotaLimitsAssets{},
+		Git: &QuotaLimitsGit{},
+		Assets: &QuotaLimitsAssets{
+			Attachments: &QuotaLimitsAttachments{},
+		},
 	}
 	if len(groups) > 0 {
 		var minusOne int64 = -1
@@ -150,7 +176,8 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 			limits.Git.LFS = maxOf(limits.Git.LFS, group.LimitGitLFS)
 
 			limits.Assets.Total = maxOf(limits.Assets.Total, group.LimitAssetTotal)
-			limits.Assets.Attachments = maxOf(limits.Assets.Attachments, group.LimitAssetAttachments)
+			limits.Assets.Attachments.Releases = maxOf(limits.Assets.Attachments.Releases, group.LimitAssetAttachmentsReleases)
+			limits.Assets.Attachments.Issues = maxOf(limits.Assets.Attachments.Issues, group.LimitAssetAttachmentsIssues)
 			limits.Assets.Packages = maxOf(limits.Assets.Packages, group.LimitAssetPackages)
 			limits.Assets.Artifacts = maxOf(limits.Assets.Artifacts, group.LimitAssetArtifacts)
 		}
@@ -158,6 +185,9 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 
 	if limits.Git.IsEmpty() {
 		limits.Git = nil
+	}
+	if limits.Assets.Attachments.IsEmpty() {
+		limits.Assets.Attachments = nil
 	}
 	if limits.Assets.IsEmpty() {
 		limits.Assets = nil
