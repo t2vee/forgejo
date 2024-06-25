@@ -291,7 +291,7 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 	}
 
 	// check the owner's quota
-	ok, err := quota_model.IsWithinQuotaLimit(ctx, ctx.ActionTask.OwnerID, quota_model.QuotaLimitCategoryAssetArtifacts)
+	ok, err := quota_model.IsWithinQuotaLimit(ctx, task.OwnerID, quota_model.QuotaLimitCategoryAssetArtifacts)
 	if err != nil {
 		log.Error("CheckFilesQuotaLimitsForUser: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error checking quota")
