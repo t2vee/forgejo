@@ -296,9 +296,8 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 
 			if *new > *old {
 				return new
-			} else {
-				return old
 			}
+			return old
 		}
 
 		for _, group := range groups {
@@ -407,7 +406,7 @@ type UserQuota struct {
 
 // QuotaGroupList is a list of quota groups
 // swagger:model
-type QuotaGroupList []*QuotaGroup
+type QuotaGroupList []*QuotaGroup //revive:disable-line:exported
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.
 // Told you so.
