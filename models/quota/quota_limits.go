@@ -112,6 +112,8 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		}
 
 		for _, group := range groups {
+			limits.LimitTotal = maxOf(limits.LimitTotal, group.LimitTotal)
+
 			limits.LimitGitTotal = maxOf(limits.LimitGitTotal, group.LimitGitTotal)
 			limits.LimitGitCode = maxOf(limits.LimitGitCode, group.LimitGitCode)
 			limits.LimitGitLFS = maxOf(limits.LimitGitLFS, group.LimitGitLFS)
