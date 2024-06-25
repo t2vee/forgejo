@@ -83,32 +83,16 @@ func ListUserRepos(ctx *context.APIContext) {
 	listUserRepos(ctx, ctx.ContextUser, private)
 }
 
-// ListMyRepos - list the repositories you own or have access to.
-func ListMyRepos(ctx *context.APIContext) {
-	// swagger:operation GET /user/repos user userCurrentListRepos
-	// ---
-	// summary: List the repos that the authenticated user owns
-	// produces:
-	// - application/json
-	// parameters:
-	// - name: page
-	//   in: query
-	//   description: page number of results to return (1-based)
-	//   type: integer
-	// - name: limit
-	//   in: query
-	//   description: page size of results
-	//   type: integer
-	// responses:
-	//   "200":
-	//     "$ref": "#/responses/RepositoryList"
-
+func listMyRepos(ctx *context.APIContext, bySize bool) {
 	opts := &repo_model.SearchRepoOptions{
 		ListOptions:        utils.GetListOptions(ctx),
 		Actor:              ctx.Doer,
 		OwnerID:            ctx.Doer.ID,
 		Private:            ctx.IsSigned,
 		IncludeDescription: true,
+	}
+	if bySize {
+		opts.OrderBy = "size DESC"
 	}
 
 	var err error
@@ -134,6 +118,34 @@ func ListMyRepos(ctx *context.APIContext) {
 	ctx.SetLinkHeader(int(count), opts.ListOptions.PageSize)
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, &results)
+
+}
+
+// ListMyRepos - list the repositories you own or have access to.
+func ListMyRepos(ctx *context.APIContext) {
+	// swagger:operation GET /user/repos user userCurrentListRepos
+	// ---
+	// summary: List the repos that the authenticated user owns
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/RepositoryList"
+
+	listMyRepos(ctx, false)
+}
+
+func ListMyReposBySize(ctx *context.APIContext) {
+	listMyRepos(ctx, true)
 }
 
 // ListOrgRepos - list the repositories of an organization.
