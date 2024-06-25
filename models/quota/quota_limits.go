@@ -22,22 +22,36 @@ const (
 )
 
 type QuotaLimits struct { //revive:disable-line:exported
-	LimitTotal *int64
+	Total  *int64             `json:"total,omitempty"`
+	Git    *QuotaLimitsGit    `json:"git,omitempty"`
+	Assets *QuotaLimitsAssets `json:"assets,omitempty"`
+}
 
-	LimitGitTotal *int64
-	LimitGitCode  *int64
-	LimitGitLFS   *int64
+type QuotaLimitsGit struct {
+	Total *int64 `json:"total,omitempty"`
+	Code  *int64 `json:"code,omitempty"`
+	LFS   *int64 `json:"lfs,omitempty"`
+}
 
-	LimitAssetTotal       *int64
-	LimitAssetAttachments *int64
-	LimitAssetPackages    *int64
-	LimitAssetArtifacts   *int64
+type QuotaLimitsAssets struct {
+	Total       *int64 `json:"total,omitempty"`
+	Attachments *int64 `json:"attachments,omitempty"`
+	Artifacts   *int64 `json:"artifacts,omitempty"`
+	Packages    *int64 `json:"packages,omitempty"`
+}
+
+func (s *QuotaLimitsGit) IsEmpty() bool {
+	return s.Total == nil && s.Code == nil && s.LFS == nil
+}
+
+func (s *QuotaLimitsAssets) IsEmpty() bool {
+	return s.Total == nil && s.Attachments == nil && s.Artifacts == nil && s.Packages == nil
 }
 
 func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 	pick := func(specificTotal *int64, specifics ...*int64) int64 {
-		if l.LimitTotal != nil {
-			return *l.LimitTotal
+		if l.Total != nil {
+			return *l.Total
 		}
 		if specificTotal != nil {
 			return *specificTotal
@@ -62,18 +76,18 @@ func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 
 	switch category {
 	case QuotaLimitCategoryGitCode:
-		return pick(l.LimitGitTotal, l.LimitGitCode)
+		return pick(l.Git.Total, l.Git.Code)
 	case QuotaLimitCategoryGitLFS:
-		return pick(l.LimitGitTotal, l.LimitGitLFS)
+		return pick(l.Git.Total, l.Git.LFS)
 	case QuotaLimitCategoryGitTotal:
-		return pick(l.LimitGitTotal, l.LimitGitCode, l.LimitGitLFS)
+		return pick(l.Git.Total, l.Git.Code, l.Git.LFS)
 
 	case QuotaLimitCategoryAssetAttachments:
-		return pick(l.LimitAssetTotal, l.LimitAssetAttachments)
+		return pick(l.Assets.Total, l.Assets.Attachments)
 	case QuotaLimitCategoryAssetArtifacts:
-		return pick(l.LimitAssetTotal, l.LimitAssetArtifacts)
+		return pick(l.Assets.Total, l.Assets.Artifacts)
 	case QuotaLimitCategoryAssetPackages:
-		return pick(l.LimitAssetTotal, l.LimitAssetPackages)
+		return pick(l.Assets.Total, l.Assets.Packages)
 
 	case QuotaLimitCategoryWiki:
 		return pick(nil, nil)
@@ -87,7 +101,10 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 	if err != nil {
 		return nil, err
 	}
-	limits := QuotaLimits{}
+	limits := QuotaLimits{
+		Git:    &QuotaLimitsGit{},
+		Assets: &QuotaLimitsAssets{},
+	}
 	if len(groups) > 0 {
 		var minusOne int64 = -1
 		maxOf := func(old, new *int64) *int64 {
@@ -112,17 +129,24 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		}
 
 		for _, group := range groups {
-			limits.LimitTotal = maxOf(limits.LimitTotal, group.LimitTotal)
+			limits.Total = maxOf(limits.Total, group.LimitTotal)
 
-			limits.LimitGitTotal = maxOf(limits.LimitGitTotal, group.LimitGitTotal)
-			limits.LimitGitCode = maxOf(limits.LimitGitCode, group.LimitGitCode)
-			limits.LimitGitLFS = maxOf(limits.LimitGitLFS, group.LimitGitLFS)
+			limits.Git.Total = maxOf(limits.Git.Total, group.LimitGitTotal)
+			limits.Git.Code = maxOf(limits.Git.Code, group.LimitGitCode)
+			limits.Git.LFS = maxOf(limits.Git.LFS, group.LimitGitLFS)
 
-			limits.LimitAssetTotal = maxOf(limits.LimitAssetTotal, group.LimitAssetTotal)
-			limits.LimitAssetAttachments = maxOf(limits.LimitAssetAttachments, group.LimitAssetAttachments)
-			limits.LimitAssetPackages = maxOf(limits.LimitAssetPackages, group.LimitAssetPackages)
-			limits.LimitAssetArtifacts = maxOf(limits.LimitAssetArtifacts, group.LimitAssetArtifacts)
+			limits.Assets.Total = maxOf(limits.Assets.Total, group.LimitAssetTotal)
+			limits.Assets.Attachments = maxOf(limits.Assets.Attachments, group.LimitAssetAttachments)
+			limits.Assets.Packages = maxOf(limits.Assets.Packages, group.LimitAssetPackages)
+			limits.Assets.Artifacts = maxOf(limits.Assets.Artifacts, group.LimitAssetArtifacts)
 		}
+	}
+
+	if limits.Git.IsEmpty() {
+		limits.Git = nil
+	}
+	if limits.Assets.IsEmpty() {
+		limits.Assets = nil
 	}
 
 	return &limits, nil
