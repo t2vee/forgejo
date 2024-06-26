@@ -43,11 +43,11 @@ func GetQuota(ctx *context.APIContext) {
 	ctx.JSON(http.StatusOK, &result)
 }
 
-// ListQuotaAttachments lists attachment affecting the authenticated user
+// ListQuotaAttachments lists attachments affecting the authenticated user's quota
 func ListQuotaAttachments(ctx *context.APIContext) {
 	// swagger:operation GET /user/quota/attachments user userListQuotaAttachments
 	// ---
-	// summary: List the attachments affecting the authenticated user
+	// summary: List the attachments affecting the authenticated user's quota
 	// produces:
 	// - application/json
 	// parameters:
