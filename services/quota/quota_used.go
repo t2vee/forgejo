@@ -54,6 +54,8 @@ func (u *QuotaUsed) AssetsSize() int64 {
 
 func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
 	switch category {
+	case QuotaLimitCategoryTotal:
+		return u.TotalSize()
 	case QuotaLimitCategoryGitTotal:
 		return u.GitSize()
 	case QuotaLimitCategoryGitCode:
@@ -61,6 +63,10 @@ func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
 	case QuotaLimitCategoryGitLFS:
 		return u.Git.LFS
 
+	case QuotaLimitCategoryAssetTotal:
+		return u.AssetsSize()
+	case QuotaLimitCategoryAssetAttachmentsTotal:
+		return u.Assets.Attachments.Releases + u.Assets.Attachments.Issues
 	case QuotaLimitCategoryAssetAttachmentsReleases:
 		return u.Assets.Attachments.Releases
 	case QuotaLimitCategoryAssetAttachmentsIssues:

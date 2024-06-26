@@ -26,7 +26,7 @@ func IsWithinQuotaLimit(ctx context.Context, userID int64, category QuotaLimitCa
 	}
 
 	// Determine the comparison participants
-	itemLimit := limits.getLimitForCategory(category)
+	itemLimit, compareCategory := limits.getLimitForCategory(category)
 	if itemLimit == -1 {
 		return true, nil
 	}
@@ -34,7 +34,7 @@ func IsWithinQuotaLimit(ctx context.Context, userID int64, category QuotaLimitCa
 		return false, nil
 	}
 
-	itemUsed := used.getUsedForCategory(category)
+	itemUsed := used.getUsedForCategory(compareCategory)
 
 	return itemUsed < itemLimit, nil
 }

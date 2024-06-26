@@ -12,15 +12,46 @@ import (
 type QuotaLimitCategory int //revive:disable-line:exported
 
 const (
-	QuotaLimitCategoryGitTotal QuotaLimitCategory = iota
+	QuotaLimitCategoryTotal QuotaLimitCategory = iota
+	QuotaLimitCategoryGitTotal
 	QuotaLimitCategoryGitCode
 	QuotaLimitCategoryGitLFS
+	QuotaLimitCategoryAssetTotal
+	QuotaLimitCategoryAssetAttachmentsTotal
 	QuotaLimitCategoryAssetAttachmentsReleases
 	QuotaLimitCategoryAssetAttachmentsIssues
 	QuotaLimitCategoryAssetArtifacts
 	QuotaLimitCategoryAssetPackages
 	QuotaLimitCategoryWiki
 )
+
+func (l QuotaLimitCategory) String() string {
+	switch l {
+	case QuotaLimitCategoryTotal:
+		return "total"
+	case QuotaLimitCategoryGitTotal:
+		return "git-total"
+	case QuotaLimitCategoryGitCode:
+		return "git-code"
+	case QuotaLimitCategoryGitLFS:
+		return "git-lfs"
+	case QuotaLimitCategoryAssetTotal:
+		return "asset-total"
+	case QuotaLimitCategoryAssetAttachmentsTotal:
+		return "asset-attachments-total"
+	case QuotaLimitCategoryAssetAttachmentsReleases:
+		return "asset-attachments-release"
+	case QuotaLimitCategoryAssetAttachmentsIssues:
+		return "asset-attachments-issues"
+	case QuotaLimitCategoryAssetArtifacts:
+		return "asset-artifacts"
+	case QuotaLimitCategoryAssetPackages:
+		return "asset-packages"
+	case QuotaLimitCategoryWiki:
+		return "wiki"
+	}
+	return "<unknown>"
+}
 
 // QuotaLimits represents the limits affecting a user
 // swagger:model
@@ -66,13 +97,13 @@ type QuotaLimitsAttachments struct { //revive:disable-line:exported
 	Issues *int64 `json:"issues,omitempty"`
 }
 
-func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
-	pick := func(specificTotal *int64, specifics ...*int64) int64 {
+func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) (int64, QuotaLimitCategory) {
+	pick := func(specificCategoryTotal QuotaLimitCategory, specificTotal *int64, specifics ...*int64) (int64, QuotaLimitCategory) {
 		if l.Total != nil {
-			return *l.Total
+			return *l.Total, QuotaLimitCategoryTotal
 		}
 		if specificTotal != nil {
-			return *specificTotal
+			return *specificTotal, specificCategoryTotal
 		}
 
 		var (
@@ -87,39 +118,47 @@ func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 			}
 		}
 		if !found {
-			return -1
+			return -1, category
 		}
-		return sum
+		return sum, category
 	}
-	pickTotal := func(outer, inner *int64) *int64 {
+	pickTotal := func(outer, inner *int64, outerCategory, innerCategory QuotaLimitCategory) (*int64, QuotaLimitCategory) {
 		if outer != nil {
-			return outer
+			return outer, outerCategory
 		}
-		return inner
+		return inner, innerCategory
 	}
 
 	switch category {
 	case QuotaLimitCategoryGitCode:
-		return pick(l.Git.GetTotal(), l.Git.GetCode())
+		return pick(QuotaLimitCategoryGitTotal, l.Git.GetTotal(), l.Git.GetCode())
 	case QuotaLimitCategoryGitLFS:
-		return pick(l.Git.GetTotal(), l.Git.GetLFS())
+		return pick(QuotaLimitCategoryGitTotal, l.Git.GetTotal(), l.Git.GetLFS())
 	case QuotaLimitCategoryGitTotal:
-		return pick(l.Git.GetTotal(), l.Git.GetCode(), l.Git.GetLFS())
+		return pick(QuotaLimitCategoryGitTotal, l.Git.GetTotal(), l.Git.GetCode(), l.Git.GetLFS())
 
 	case QuotaLimitCategoryAssetAttachmentsReleases:
-		return pick(pickTotal(l.Assets.GetTotal(), l.Assets.GetAttachments().GetTotal()), l.Assets.GetAttachments().GetReleases())
+		total, category := pickTotal(
+			l.Assets.GetTotal(), l.Assets.GetAttachments().GetTotal(),
+			QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal,
+		)
+		return pick(category, total, l.Assets.GetAttachments().GetReleases())
 	case QuotaLimitCategoryAssetAttachmentsIssues:
-		return pick(pickTotal(l.Assets.GetTotal(), l.Assets.GetAttachments().GetTotal()), l.Assets.GetAttachments().GetIssues())
+		total, category := pickTotal(
+			l.Assets.GetTotal(), l.Assets.GetAttachments().GetTotal(),
+			QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal,
+		)
+		return pick(category, total, l.Assets.GetAttachments().GetIssues())
 	case QuotaLimitCategoryAssetArtifacts:
-		return pick(l.Assets.GetTotal(), l.Assets.GetArtifacts())
+		return pick(QuotaLimitCategoryAssetTotal, l.Assets.GetTotal(), l.Assets.GetArtifacts())
 	case QuotaLimitCategoryAssetPackages:
-		return pick(l.Assets.GetTotal(), l.Assets.GetPackages())
+		return pick(QuotaLimitCategoryAssetTotal, l.Assets.GetTotal(), l.Assets.GetPackages())
 
 	case QuotaLimitCategoryWiki:
-		return pick(nil, nil)
+		return pick(category, nil, nil)
 	}
 
-	return pick(nil, nil)
+	return pick(category, nil, nil)
 }
 
 func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, error) {
