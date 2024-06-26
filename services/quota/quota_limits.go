@@ -66,18 +66,6 @@ type QuotaLimitsAttachments struct { //revive:disable-line:exported
 	Issues *int64 `json:"issues,omitempty"`
 }
 
-func (s *QuotaLimitsGit) IsEmpty() bool {
-	return s.Total == nil && s.Code == nil && s.LFS == nil
-}
-
-func (s *QuotaLimitsAssets) IsEmpty() bool {
-	return s.Total == nil && s.Attachments == nil && s.Artifacts == nil && s.Packages == nil
-}
-
-func (s *QuotaLimitsAttachments) IsEmpty() bool {
-	return s.Total == nil && s.Releases == nil && s.Issues == nil
-}
-
 func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 	pick := func(specificTotal *int64, specifics ...*int64) int64 {
 		if l.Total != nil {
@@ -112,20 +100,20 @@ func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) int64 {
 
 	switch category {
 	case QuotaLimitCategoryGitCode:
-		return pick(l.Git.Total, l.Git.Code)
+		return pick(l.Git.GetTotal(), l.Git.GetCode())
 	case QuotaLimitCategoryGitLFS:
-		return pick(l.Git.Total, l.Git.LFS)
+		return pick(l.Git.GetTotal(), l.Git.GetLFS())
 	case QuotaLimitCategoryGitTotal:
-		return pick(l.Git.Total, l.Git.Code, l.Git.LFS)
+		return pick(l.Git.GetTotal(), l.Git.GetCode(), l.Git.GetLFS())
 
 	case QuotaLimitCategoryAssetAttachmentsReleases:
-		return pick(pickTotal(l.Assets.Total, l.Assets.Attachments.Total), l.Assets.Attachments.Releases)
+		return pick(pickTotal(l.Assets.GetTotal(), l.Assets.GetAttachments().GetTotal()), l.Assets.GetAttachments().GetReleases())
 	case QuotaLimitCategoryAssetAttachmentsIssues:
-		return pick(pickTotal(l.Assets.Total, l.Assets.Attachments.Total), l.Assets.Attachments.Issues)
+		return pick(pickTotal(l.Assets.GetTotal(), l.Assets.GetAttachments().GetTotal()), l.Assets.GetAttachments().GetIssues())
 	case QuotaLimitCategoryAssetArtifacts:
-		return pick(l.Assets.Total, l.Assets.Artifacts)
+		return pick(l.Assets.GetTotal(), l.Assets.GetArtifacts())
 	case QuotaLimitCategoryAssetPackages:
-		return pick(l.Assets.Total, l.Assets.Packages)
+		return pick(l.Assets.GetTotal(), l.Assets.GetPackages())
 
 	case QuotaLimitCategoryWiki:
 		return pick(nil, nil)
@@ -171,22 +159,22 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		for _, group := range groups {
 			limits.Total = maxOf(limits.Total, group.LimitTotal)
 
-			limits.Git.Total = maxOf(limits.Git.Total, group.LimitGitTotal)
-			limits.Git.Code = maxOf(limits.Git.Code, group.LimitGitCode)
-			limits.Git.LFS = maxOf(limits.Git.LFS, group.LimitGitLFS)
+			limits.Git.Total = maxOf(limits.Git.GetTotal(), group.LimitGitTotal)
+			limits.Git.Code = maxOf(limits.Git.GetCode(), group.LimitGitCode)
+			limits.Git.LFS = maxOf(limits.Git.GetLFS(), group.LimitGitLFS)
 
-			limits.Assets.Total = maxOf(limits.Assets.Total, group.LimitAssetTotal)
-			limits.Assets.Attachments.Releases = maxOf(limits.Assets.Attachments.Releases, group.LimitAssetAttachmentsReleases)
-			limits.Assets.Attachments.Issues = maxOf(limits.Assets.Attachments.Issues, group.LimitAssetAttachmentsIssues)
-			limits.Assets.Packages = maxOf(limits.Assets.Packages, group.LimitAssetPackages)
-			limits.Assets.Artifacts = maxOf(limits.Assets.Artifacts, group.LimitAssetArtifacts)
+			limits.Assets.Total = maxOf(limits.Assets.GetTotal(), group.LimitAssetTotal)
+			limits.Assets.Attachments.Releases = maxOf(limits.Assets.GetAttachments().GetReleases(), group.LimitAssetAttachmentsReleases)
+			limits.Assets.Attachments.Issues = maxOf(limits.Assets.GetAttachments().GetIssues(), group.LimitAssetAttachmentsIssues)
+			limits.Assets.Packages = maxOf(limits.Assets.GetPackages(), group.LimitAssetPackages)
+			limits.Assets.Artifacts = maxOf(limits.Assets.GetArtifacts(), group.LimitAssetArtifacts)
 		}
 	}
 
 	if limits.Git.IsEmpty() {
 		limits.Git = nil
 	}
-	if limits.Assets.Attachments.IsEmpty() {
+	if limits.Assets.GetAttachments().IsEmpty() {
 		limits.Assets.Attachments = nil
 	}
 	if limits.Assets.IsEmpty() {
@@ -194,6 +182,88 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 	}
 
 	return &limits, nil
+}
+
+func (s *QuotaLimitsGit) IsEmpty() bool {
+	return s.Total == nil && s.Code == nil && s.LFS == nil
+}
+
+func (s *QuotaLimitsAssets) IsEmpty() bool {
+	return s.Total == nil && s.Attachments == nil && s.Artifacts == nil && s.Packages == nil
+}
+
+func (s *QuotaLimitsAttachments) IsEmpty() bool {
+	return s.Total == nil && s.Releases == nil && s.Issues == nil
+}
+
+func (l *QuotaLimitsGit) GetTotal() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Total
+}
+
+func (l *QuotaLimitsGit) GetCode() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Code
+}
+
+func (l *QuotaLimitsGit) GetLFS() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.LFS
+}
+
+func (l *QuotaLimitsAssets) GetTotal() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Total
+}
+
+func (l *QuotaLimitsAssets) GetArtifacts() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Artifacts
+}
+
+func (l *QuotaLimitsAssets) GetAttachments() *QuotaLimitsAttachments {
+	if l == nil {
+		return nil
+	}
+	return l.Attachments
+}
+
+func (l *QuotaLimitsAssets) GetPackages() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Packages
+}
+
+func (l *QuotaLimitsAttachments) GetTotal() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Total
+}
+
+func (l *QuotaLimitsAttachments) GetReleases() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Releases
+}
+
+func (l *QuotaLimitsAttachments) GetIssues() *int64 {
+	if l == nil {
+		return nil
+	}
+	return l.Issues
 }
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.
