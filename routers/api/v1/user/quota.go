@@ -50,6 +50,15 @@ func ListQuotaAttachments(ctx *context.APIContext) {
 	// summary: List the attachments affecting the authenticated user
 	// produces:
 	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/QuotaUsedAttachmentList"
