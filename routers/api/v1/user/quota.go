@@ -72,7 +72,7 @@ func ListQuotaAttachments(ctx *context.APIContext) {
 
 	result, err := convert.ToQuotaUsedAttachmentList(ctx, *attachments)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedAttachments", err)
+		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedAttachmentList", err)
 	}
 
 	ctx.SetLinkHeader(int(count), opts.PageSize)
@@ -109,7 +109,7 @@ func ListQuotaPackages(ctx *context.APIContext) {
 
 	result, err := convert.ToQuotaUsedPackageList(ctx, *packages)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedPackages", err)
+		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedPackageList", err)
 	}
 
 	ctx.SetLinkHeader(int(count), opts.PageSize)
