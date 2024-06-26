@@ -27,6 +27,34 @@ const (
 	QuotaLimitCategoryWiki
 )
 
+func (l QuotaLimitCategory) String() string {
+	switch l {
+	case QuotaLimitCategoryTotal:
+		return "total"
+	case QuotaLimitCategoryGitTotal:
+		return "git-total"
+	case QuotaLimitCategoryGitCode:
+		return "git-code"
+	case QuotaLimitCategoryGitLFS:
+		return "git-lfs"
+	case QuotaLimitCategoryAssetTotal:
+		return "asset-total"
+	case QuotaLimitCategoryAssetAttachmentsTotal:
+		return "asset-attachments-total"
+	case QuotaLimitCategoryAssetAttachmentsReleases:
+		return "asset-attachments-release"
+	case QuotaLimitCategoryAssetAttachmentsIssues:
+		return "asset-attachments-issues"
+	case QuotaLimitCategoryAssetArtifacts:
+		return "asset-artifacts"
+	case QuotaLimitCategoryAssetPackages:
+		return "asset-packages"
+	case QuotaLimitCategoryWiki:
+		return "wiki"
+	}
+	return "<unknown>"
+}
+
 // QuotaLimits represents the limits affecting a user
 // swagger:model
 type QuotaLimits struct { //revive:disable-line:exported
@@ -71,7 +99,7 @@ type QuotaLimitsAttachments struct { //revive:disable-line:exported
 	Issues *int64 `json:"issues,omitempty"`
 }
 
-func (l *QuotaLimits) getLimitForCategory(category QuotaLimitCategory) (int64, QuotaLimitCategory) {
+func (l *QuotaLimits) GetLimitForCategory(category QuotaLimitCategory) (int64, QuotaLimitCategory) {
 	pick := func(specificCategoryTotal QuotaLimitCategory, specificTotal *int64, specifics ...*int64) (int64, QuotaLimitCategory) {
 		if l.Total != nil {
 			return *l.Total, QuotaLimitCategoryTotal
@@ -140,11 +168,11 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 	if err != nil {
 		return nil, err
 	}
-	limits := getQuotaLimitsForGroups(groups)
+	limits := GetQuotaLimitsForGroups(groups)
 	return &limits, nil
 }
 
-func getQuotaLimitsForGroups(groups []*quota_model.QuotaGroup) QuotaLimits {
+func GetQuotaLimitsForGroups(groups []*quota_model.QuotaGroup) QuotaLimits {
 	limits := QuotaLimits{
 		Git: &QuotaLimitsGit{},
 		Assets: &QuotaLimitsAssets{
