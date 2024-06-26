@@ -7,6 +7,8 @@ package quota
 
 import (
 	"context"
+
+	quota_model "code.gitea.io/gitea/models/quota"
 )
 
 type QuotaLimitCategory int //revive:disable-line:exported
@@ -166,6 +168,11 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 	if err != nil {
 		return nil, err
 	}
+	limits := getQuotaLimitsForGroups(groups)
+	return &limits, nil
+}
+
+func getQuotaLimitsForGroups(groups []*quota_model.QuotaGroup) QuotaLimits {
 	limits := QuotaLimits{
 		Git: &QuotaLimitsGit{},
 		Assets: &QuotaLimitsAssets{
@@ -220,7 +227,7 @@ func GetQuotaLimitsForUser(ctx context.Context, userID int64) (*QuotaLimits, err
 		limits.Assets = nil
 	}
 
-	return &limits, nil
+	return limits
 }
 
 func (s *QuotaLimitsGit) IsEmpty() bool {
