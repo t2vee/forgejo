@@ -52,7 +52,7 @@ func (u *QuotaUsed) AssetsSize() int64 {
 	return u.Assets.Attachments.Releases + u.Assets.Attachments.Issues + u.Assets.Packages + u.Assets.Artifacts
 }
 
-func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
+func (u *QuotaUsed) GetUsedForCategory(category QuotaLimitCategory) int64 {
 	switch category {
 	case QuotaLimitCategoryTotal:
 		return u.TotalSize()

@@ -15,54 +15,6 @@ import (
 )
 
 func TestQuotaLimits(t *testing.T) {
-	var (
-		gitCategories = []quota_service.QuotaLimitCategory{
-			quota_service.QuotaLimitCategoryGitTotal,
-			quota_service.QuotaLimitCategoryGitCode,
-			quota_service.QuotaLimitCategoryGitLFS,
-		}
-		assetAttachmentCategories = []quota_service.QuotaLimitCategory{
-			quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
-			quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
-			quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
-		}
-		assetCategories = append(
-			assetAttachmentCategories,
-			quota_service.QuotaLimitCategoryAssetTotal,
-			quota_service.QuotaLimitCategoryAssetArtifacts,
-			quota_service.QuotaLimitCategoryAssetPackages,
-		)
-
-		allCategories = append(
-			gitCategories,
-			append(assetCategories, assetAttachmentCategories...)...,
-		)
-	)
-
-	assertCategoryAndLimit := func(t *testing.T, limits quota_service.QuotaLimits, limitCategory, expectedCategory quota_service.QuotaLimitCategory, expectedLimit int64) {
-		t.Helper()
-
-		limit, category := limits.GetLimitForCategory(limitCategory)
-		assert.Equal(t, expectedCategory.String(), category.String())
-		assert.EqualValues(t, expectedLimit, limit)
-	}
-
-	assertUniformCategoryAndLimit := func(t *testing.T, limits quota_service.QuotaLimits, categories []quota_service.QuotaLimitCategory, expectedCategory quota_service.QuotaLimitCategory, expectedLimit int64) {
-		t.Helper()
-
-		for _, c := range categories {
-			assertCategoryAndLimit(t, limits, c, expectedCategory, expectedLimit)
-		}
-	}
-
-	assertUniformLimitAndUnchangedCategory := func(t *testing.T, limits quota_service.QuotaLimits, categories []quota_service.QuotaLimitCategory, expectedLimit int64) {
-		t.Helper()
-
-		for _, c := range categories {
-			assertCategoryAndLimit(t, limits, c, c, expectedLimit)
-		}
-	}
-
 	t.Run("no groups", func(t *testing.T) {
 		groups := []*quota_model.QuotaGroup{}
 		limits := quota_service.GetQuotaLimitsForGroups(groups)
@@ -71,55 +23,95 @@ func TestQuotaLimits(t *testing.T) {
 		assert.Nil(t, limits.Git)
 		assert.Nil(t, limits.Assets)
 
-		assertUniformLimitAndUnchangedCategory(t, limits, allCategories, -1)
+		for _, category := range allCategories {
+			n, _, _ := limits.ResolveForCategory(category)
+			assert.EqualValues(t, 0, n)
+		}
 	})
 
 	t.Run("single group", func(t *testing.T) {
-		limitsForSingleGroup := func(group quota_model.QuotaGroup) quota_service.QuotaLimits {
-			groups := []*quota_model.QuotaGroup{&group}
-			return quota_service.GetQuotaLimitsForGroups(groups)
-		}
+		t.Run("single limit", func(t *testing.T) {
+			tests := map[string]TestCase{
+				"Total": {
+					Group: quota_model.QuotaGroup{LimitTotal: Ptr(int64(1024))},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N:      1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryTotal,
+							},
+						},
+						makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryEnd)...,
+					),
+				},
+				"GitTotal": {
+					Group: quota_model.QuotaGroup{LimitGitTotal: Ptr(int64(1024))},
+					Expected: mergeExpectations(
+						repeatExpectations(
+							TestExpectation{
+								N:      1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryGitTotal,
+								},
+							},
+							makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitLFS)...,
+						),
+						repeatExpectations(
+							TestExpectation{},
+							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryEnd)...,
+						),
+					),
+				},
+				"GitCode": {
+					Group: quota_model.QuotaGroup{LimitGitCode: Ptr(int64(1024))},
+					Expected: mergeExpectations(
+						repeatExpectations(
+							TestExpectation{
+								N:      1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryGitCode,
+								},
+							},
+							makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitCode)...,
+						),
+						repeatExpectations(
+							TestExpectation{},
+							makeCatList(quota_service.QuotaLimitCategoryGitLFS, quota_service.QuotaLimitCategoryEnd)...,
+						),
+					),
+				},
+				"GitLFS": {
+					Group: quota_model.QuotaGroup{LimitGitLFS: Ptr(int64(1024))},
+					Expected: mergeExpectations(
+						repeatExpectations(
+							TestExpectation{
+								N:      1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryGitLFS,
+								},
+							},
+							quota_service.QuotaLimitCategoryTotal,
+							quota_service.QuotaLimitCategoryGitTotal,
+							quota_service.QuotaLimitCategoryGitLFS,
+						),
+						makeExpectationForCategory(
+							quota_service.QuotaLimitCategoryGitCode,
+							TestExpectation{},
+						),
+						repeatExpectations(
+							TestExpectation{},
+							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryEnd)...,
+						),
+					),
+				},
+			}
 
-		t.Run("total", func(t *testing.T) {
-			total := int64(1024)
-			limits := limitsForSingleGroup(quota_model.QuotaGroup{LimitTotal: &total})
-
-			assert.NotNil(t, limits.Total)
-			assert.Nil(t, limits.Git)
-			assert.Nil(t, limits.Assets)
-
-			assertUniformCategoryAndLimit(t, limits, allCategories, quota_service.QuotaLimitCategoryTotal, total)
+			runTestCases(t, tests)
 		})
-
-		t.Run("git", func(t *testing.T) {
-			t.Run("total", func(t *testing.T) {
-				total := int64(1024)
-				limits := limitsForSingleGroup(quota_model.QuotaGroup{LimitGitTotal: &total})
-
-				assert.NotNil(t, limits.Git)
-				assert.NotNil(t, limits.Git.Total)
-				assert.Nil(t, limits.Git.Code)
-				assert.Nil(t, limits.Git.LFS)
-
-				assertUniformCategoryAndLimit(t, limits, gitCategories, quota_service.QuotaLimitCategoryGitTotal, total)
-				assertUniformLimitAndUnchangedCategory(t, limits, assetCategories, -1)
-			})
-
-			t.Run("code", func(t *testing.T) {
-				value := int64(1024)
-				limits := limitsForSingleGroup(quota_model.QuotaGroup{LimitGitCode: &value})
-
-				assert.NotNil(t, limits.Git)
-				assert.Nil(t, limits.Git.Total)
-				assert.NotNil(t, limits.Git.Code)
-				assert.Nil(t, limits.Git.LFS)
-
-
-				assertCategoryAndLimit(t, limits, quota_service.QuotaLimitCategoryGitCode, quota_service.QuotaLimitCategoryGitCode, value)
-				assertCategoryAndLimit(t, limits, quota_service.QuotaLimitCategoryGitLFS, quota_service.QuotaLimitCategoryGitLFS, -1)
-			})
-		})
-
 	})
 }
 
