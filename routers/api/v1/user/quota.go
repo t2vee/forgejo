@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"code.gitea.io/gitea/services/context"
+	"code.gitea.io/gitea/services/convert"
 	quota_service "code.gitea.io/gitea/services/quota"
 )
 
@@ -39,4 +40,28 @@ func GetQuota(ctx *context.APIContext) {
 	}
 
 	ctx.JSON(http.StatusOK, &result)
+}
+
+// ListQuotaAttachments lists attachment affecting the authenticated user
+func ListQuotaAttachments(ctx *context.APIContext) {
+	// swagger:operation GET /user/quota/attachments user userListQuotaAttachments
+	// ---
+	// summary: List the attachments affecting the authenticated user
+	// produces:
+	// - application/json
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/QuotaUsedAttachmentList"
+	attachments, err := quota_service.GetQuotaAttachmentsForUser(ctx, ctx.Doer.ID)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetQuotaAttachmentsForUser", err)
+		return
+	}
+
+	result, err := convert.ToQuotaUsedAttachmentList(ctx, *attachments)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedAttachments", err)
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"code.gitea.io/gitea/models/db"
+	repo_model "code.gitea.io/gitea/models/repo"
 )
 
 // QuotaUsed represents the quota used by a user
@@ -72,6 +73,22 @@ func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
 	}
 
 	return 0
+}
+
+func GetQuotaAttachmentsForUser(ctx context.Context, userID int64) (*[]*repo_model.Attachment, error) {
+	var attachments []*repo_model.Attachment
+
+	err := db.GetEngine(ctx).Select("`attachment`.*").
+		Table("attachment").
+		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
+		Where("`repository`.owner_id = ?", userID).
+		OrderBy("`attachment`.size DESC").
+		Find(&attachments)
+	if err != nil {
+		return nil, err
+	}
+
+	return &attachments, nil
 }
 
 func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {
