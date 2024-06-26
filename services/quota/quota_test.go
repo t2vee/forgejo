@@ -34,6 +34,7 @@ func TestQuotaLimits(t *testing.T) {
 			tests := map[string]TestCase{
 				"Total": {
 					Group: quota_model.QuotaGroup{LimitTotal: Ptr(int64(1024))},
+					// Expectation: Every category is checked against Total
 					Expected: repeatExpectations(
 						TestExpectation{
 							N:      1,
@@ -47,6 +48,8 @@ func TestQuotaLimits(t *testing.T) {
 				},
 				"GitTotal": {
 					Group: quota_model.QuotaGroup{LimitGitTotal: Ptr(int64(1024))},
+					// Expectation: Every Git category (& Total) is checked
+					// against LimitGitTotal. The rest aren't checked.
 					Expected: mergeExpectations(
 						repeatExpectations(
 							TestExpectation{
@@ -66,6 +69,8 @@ func TestQuotaLimits(t *testing.T) {
 				},
 				"GitCode": {
 					Group: quota_model.QuotaGroup{LimitGitCode: Ptr(int64(1024))},
+					// Expectation: Total, GitTotal, and GitCode are checked
+					// against GitCode. The rest aren't checked.
 					Expected: mergeExpectations(
 						repeatExpectations(
 							TestExpectation{
@@ -85,6 +90,8 @@ func TestQuotaLimits(t *testing.T) {
 				},
 				"GitLFS": {
 					Group: quota_model.QuotaGroup{LimitGitLFS: Ptr(int64(1024))},
+					// Expectation: Total, GitTotal, and GitLFS are checked
+					// against GitLFS. The rest aren't checked.
 					Expected: mergeExpectations(
 						repeatExpectations(
 							TestExpectation{
