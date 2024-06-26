@@ -115,6 +115,36 @@ func TestQuotaLimits(t *testing.T) {
 						),
 					),
 				},
+				"AssetTotal": {
+					Group: quota_model.QuotaGroup{LimitAssetTotal: Ptr(int64(1024))},
+					// Expectation: Total, AssetTotal, and the rest of the Asset category is checked against AssetTotal. The rest aren't checked.
+					Expected: mergeExpectations(
+						makeExpectationForCategory(
+							quota_service.QuotaLimitCategoryTotal,
+							TestExpectation{
+								N: 1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryAssetTotal,
+								},
+							},
+						),
+						repeatExpectations(
+							TestExpectation{
+								N: 1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryAssetTotal,
+								},
+							},
+							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryAssetPackages)...,
+						),
+						repeatExpectations(
+							TestExpectation{},
+							makeCatList(quota_service.QuotaLimitCategoryGitTotal, quota_service.QuotaLimitCategoryGitLFS)...,
+						),
+					),
+				},
 			}
 
 			runTestCases(t, tests)
