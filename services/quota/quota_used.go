@@ -130,7 +130,7 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
 		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
 		Join("INNER", "`repository`", "`package`.repo_id = `repository`.id").
-		Where("`package`.owner_id = ? AND `package`.repo_id != 0", userID).
+		Where("`repository`.owner_id = ?", userID).
 		Get(&repoPackages)
 	if err != nil {
 		return nil, err
