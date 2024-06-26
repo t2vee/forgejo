@@ -290,7 +290,7 @@ func GetUserQuota(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	used, err := quota_service.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
+	used, err := quota_service.GetQuotaUsedForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetGitUseForUser", err)
 		return
