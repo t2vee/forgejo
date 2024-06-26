@@ -50,53 +50,47 @@ func TestQuotaLimits(t *testing.T) {
 					Group: quota_model.QuotaGroup{LimitGitTotal: Ptr(int64(1024))},
 					// Expectation: Every Git category (& Total) is checked
 					// against LimitGitTotal. The rest aren't checked.
-					Expected: mergeExpectations(
-						repeatExpectations(
-							TestExpectation{
-								N:      1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryGitTotal,
-								},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N:      1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryGitTotal,
 							},
-							makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitLFS)...,
-						),
+						},
+						makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitLFS)...,
 					),
 				},
 				"GitCode": {
 					Group: quota_model.QuotaGroup{LimitGitCode: Ptr(int64(1024))},
 					// Expectation: Total, GitTotal, and GitCode are checked
 					// against GitCode. The rest aren't checked.
-					Expected: mergeExpectations(
-						repeatExpectations(
-							TestExpectation{
-								N:      1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryGitCode,
-								},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N:      1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryGitCode,
 							},
-							makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitCode)...,
-						),
+						},
+						makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitCode)...,
 					),
 				},
 				"GitLFS": {
 					Group: quota_model.QuotaGroup{LimitGitLFS: Ptr(int64(1024))},
 					// Expectation: Total, GitTotal, and GitLFS are checked
 					// against GitLFS. The rest aren't checked.
-					Expected: mergeExpectations(
-						repeatExpectations(
-							TestExpectation{
-								N:      1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryGitLFS,
-								},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N:      1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryGitLFS,
 							},
-							quota_service.QuotaLimitCategoryTotal,
-							quota_service.QuotaLimitCategoryGitTotal,
-							quota_service.QuotaLimitCategoryGitLFS,
-						),
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryGitTotal,
+						quota_service.QuotaLimitCategoryGitLFS,
 					),
 				},
 				"AssetTotal": {
@@ -104,27 +98,21 @@ func TestQuotaLimits(t *testing.T) {
 					// Expectation: Total, AssetTotal, and the rest of the Asset
 					// category is checked against AssetTotal. The rest aren't
 					// checked.
-					Expected: mergeExpectations(
-						makeExpectationForCategory(
-							quota_service.QuotaLimitCategoryTotal,
-							TestExpectation{
-								N: 1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryAssetTotal,
-								},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N: 1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryAssetTotal,
 							},
-						),
-						repeatExpectations(
-							TestExpectation{
-								N: 1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryAssetTotal,
-								},
-							},
-							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryAssetPackages)...,
-						),
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryAssetTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
+						quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
+						quota_service.QuotaLimitCategoryAssetArtifacts,
+						quota_service.QuotaLimitCategoryAssetPackages,
 					),
 				},
 				"AssetAttachmentsTotal": {
@@ -132,27 +120,19 @@ func TestQuotaLimits(t *testing.T) {
 					// Expectation: Total, AssetTotal, AssetAttachments* are
 					// checked against AssetAttachmentsTotal. The rest aren't
 					// checked.
-					Expected: mergeExpectations(
-						makeExpectationForCategory(
-							quota_service.QuotaLimitCategoryTotal,
-							TestExpectation{
-								N: 1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
-								},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N: 1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
 							},
-						),
-						repeatExpectations(
-							TestExpectation{
-								N: 1,
-								Limits: []int64{1024},
-								Categories: []quota_service.QuotaLimitCategory{
-									quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
-								},
-							},
-							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryAssetAttachmentsIssues)...,
-						),
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryAssetTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
+						quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
 					),
 				},
 				"AssetAttachmentsReleases": {
