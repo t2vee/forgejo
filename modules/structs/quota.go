@@ -29,3 +29,20 @@ type QuotaUsedAttachment struct {
 		HTMLURL string `json:"html_url"`
 	} `json:"contained_in"`
 }
+
+// QuotaUsedPackageList represents a list of packages counting towards a user's quota
+type QuotaUsedPackageList []*QuotaUsedPackage
+
+// QuotaUsedPackage represents a package counting towards a user's quota
+type QuotaUsedPackage struct {
+	// Name of the package
+	Name string `json:"name"`
+	// Type of the package
+	Type string `json:"type"`
+	// Version of the package
+	Version string `json:"version"`
+	// Size of the package version
+	Size int64 `json:"size"`
+	// HTML URL to the package version
+	HTMLURL string `json:"html_url"`
+}

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	issue_model "code.gitea.io/gitea/models/issues"
+	package_model "code.gitea.io/gitea/models/packages"
 	repo_model "code.gitea.io/gitea/models/repo"
 	api "code.gitea.io/gitea/modules/structs"
 )
@@ -61,6 +62,31 @@ func ToQuotaUsedAttachmentList(ctx context.Context, attachments []*repo_model.At
 		}
 		result[i].ContainedIn.APIURL = capiURL
 		result[i].ContainedIn.HTMLURL = chtmlURL
+	}
+
+	return &result, nil
+}
+
+func ToQuotaUsedPackageList(ctx context.Context, packages []*package_model.PackageVersion) (*api.QuotaUsedPackageList, error) {
+	result := make(api.QuotaUsedPackageList, len(packages))
+	for i, pv := range packages {
+		d, err := package_model.GetPackageDescriptor(ctx, pv)
+		if err != nil {
+			return nil, err
+		}
+
+		var size int64
+		for _, file := range d.Files {
+			size += file.Blob.Size
+		}
+
+		result[i] = &api.QuotaUsedPackage{
+			Name:    d.Package.Name,
+			Type:    d.Package.Type.Name(),
+			Version: d.Version.Version,
+			Size:    size,
+			HTMLURL: d.VersionHTMLURL(),
+		}
 	}
 
 	return &result, nil

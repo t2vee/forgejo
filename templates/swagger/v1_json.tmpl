@@ -17898,6 +17898,37 @@
         }
       }
     },
+    "/user/quota/packages": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "List the packages affecting the authenticated user's quota",
+        "operationId": "userListQuotaPackages",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "page number of results to return (1-based)",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "page size of results",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/QuotaUsedPackageList"
+          }
+        }
+      }
+    },
     "/user/repos": {
       "get": {
         "produces": [
@@ -24889,6 +24920,47 @@
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"
     },
+    "QuotaUsedPackage": {
+      "description": "QuotaUsedPackage represents a package counting towards a user's quota",
+      "type": "object",
+      "properties": {
+        "html_url": {
+          "description": "HTML URL to the package version",
+          "type": "string",
+          "x-go-name": "HTMLURL"
+        },
+        "name": {
+          "description": "Name of the package",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "size": {
+          "description": "Size of the package version",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "type": {
+          "description": "Type of the package",
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "version": {
+          "description": "Version of the package",
+          "type": "string",
+          "x-go-name": "Version"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
+    "QuotaUsedPackageList": {
+      "description": "QuotaUsedPackageList represents a list of packages counting towards a user's quota",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/QuotaUsedPackage"
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
     "Reaction": {
       "description": "Reaction contain one reaction",
       "type": "object",
@@ -27108,6 +27180,12 @@
       "description": "QuotaUsedAttachmentList",
       "schema": {
         "$ref": "#/definitions/QuotaUsedAttachmentList"
+      }
+    },
+    "QuotaUsedPackageList": {
+      "description": "QuotaUsedPackageList",
+      "schema": {
+        "$ref": "#/definitions/QuotaUsedPackageList"
       }
     },
     "Reaction": {

@@ -79,3 +79,40 @@ func ListQuotaAttachments(ctx *context.APIContext) {
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, result)
 }
+
+// ListQuotaPackages lists packages affecting the authenticated user's quota
+func ListQuotaPackages(ctx *context.APIContext) {
+	// swagger:operation GET /user/quota/packages user userListQuotaPackages
+	// ---
+	// summary: List the packages affecting the authenticated user's quota
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/QuotaUsedPackageList"
+
+	opts := utils.GetListOptions(ctx)
+	count, packages, err := quota_service.GetQuotaPackagesForUser(ctx, ctx.Doer.ID, opts)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetQuotaPackagesForUser", err)
+		return
+	}
+
+	result, err := convert.ToQuotaUsedPackageList(ctx, *packages)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedPackages", err)
+	}
+
+	ctx.SetLinkHeader(int(count), opts.PageSize)
+	ctx.SetTotalCountHeader(count)
+	ctx.JSON(http.StatusOK, result)
+}

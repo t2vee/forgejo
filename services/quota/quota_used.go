@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"code.gitea.io/gitea/models/db"
+	package_model "code.gitea.io/gitea/models/packages"
 	repo_model "code.gitea.io/gitea/models/repo"
 )
 
@@ -94,11 +95,12 @@ func createQueryFor(ctx context.Context, userID int64, q string) db.Engine {
 			Where("`repository`.owner_id = ?", userID)
 	case "packages":
 		return session.
-			Table("package_blob").
-			Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
-			Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
+			Table("package_version").
+			Join("INNER", "`package_file`", "`package_file`.version_id = `package_version`.id").
+			Join("INNER", "`package_blob`", "`package_file`.blob_id = `package_blob`.id").
 			Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
-			Join("INNER", "`repository`", "`package`.repo_id = `repository`.id")
+			Join("LEFT OUTER", "`repository`", "`package`.repo_id = `repository`.id").
+			Where("`repository`.owner_id = ? OR (`package`.repo_id = 0 AND `package`.owner_id = ?)", userID, userID)
 	}
 
 	return session
@@ -124,6 +126,22 @@ func GetQuotaAttachmentsForUser(ctx context.Context, userID int64, opts db.ListO
 	}
 
 	return count, &attachments, nil
+}
+
+func GetQuotaPackagesForUser(ctx context.Context, userID int64, opts db.ListOptions) (int64, *[]*package_model.PackageVersion, error) {
+	var pkgs []*package_model.PackageVersion
+
+	sess := createQueryFor(ctx, userID, "packages").
+		OrderBy("`package_blob`.size DESC")
+	if opts.PageSize > 0 {
+		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
+	}
+	count, err := sess.FindAndCount(&pkgs)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return count, &pkgs, nil
 }
 
 func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {
@@ -159,25 +177,12 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 		return nil, err
 	}
 
-	var floatingPackages int64
 	_, err = createQueryFor(ctx, userID, "packages").
 		Select("SUM(package_blob.size) AS size").
-		Where("`package`.owner_id = ? AND `package`.repo_id = 0", userID).
-		Get(&floatingPackages)
+		Get(&used.Assets.Packages)
 	if err != nil {
 		return nil, err
 	}
-
-	var repoPackages int64
-	_, err = createQueryFor(ctx, userID, "packages").
-		Select("SUM(package_blob.size) AS size").
-		Where("`repository`.owner_id = ?", userID).
-		Get(&repoPackages)
-	if err != nil {
-		return nil, err
-	}
-
-	used.Assets.Packages = floatingPackages + repoPackages
 
 	return &used, nil
 }
