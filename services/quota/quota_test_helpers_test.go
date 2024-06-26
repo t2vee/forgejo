@@ -13,6 +13,7 @@ import (
 	quota_service "code.gitea.io/gitea/services/quota"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -113,10 +114,13 @@ func runTestCases(t *testing.T, testCases map[string]TestCase) {
 			limits := limitsForSingleGroup(testCase.Group)
 
 			for category, expectation := range testCase.Expected {
-				n, itemLimits, itemCategories := limits.ResolveForCategory(category)
-				assert.EqualValues(t, expectation.N, n)
-				assert.EqualValues(t, expectation.Limits, itemLimits)
-				assertCategories(t, expectation.Categories, itemCategories)
+				t.Run("resolve-for:" + category.String(), func(t *testing.T) {
+					n, itemLimits, itemCategories := limits.ResolveForCategory(category)
+
+					require.EqualValues(t, expectation.N, n, "n != expectation.N")
+					assert.EqualValues(t, expectation.Limits, itemLimits)
+					assertCategories(t, expectation.Categories, itemCategories)
+				})
 			}
 		})
 	}
