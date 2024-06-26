@@ -149,7 +149,7 @@ func (l *QuotaLimits) ResolveForCategory(category QuotaLimitCategory) (int, []in
 		QuotaLimitCategoryGitCode:                  cats(QuotaLimitCategoryTotal, QuotaLimitCategoryGitTotal, QuotaLimitCategoryGitCode),
 		QuotaLimitCategoryGitLFS:                   cats(QuotaLimitCategoryTotal, QuotaLimitCategoryGitTotal, QuotaLimitCategoryGitLFS),
 		QuotaLimitCategoryAssetTotal:               cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetArtifacts, QuotaLimitCategoryAssetPackages),
-		QuotaLimitCategoryAssetAttachmentsTotal:    cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsReleases, QuotaLimitCategoryAssetAttachmentsIssues),
+		QuotaLimitCategoryAssetAttachmentsTotal:    cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsReleases, QuotaLimitCategoryAssetAttachmentsIssues),
 		QuotaLimitCategoryAssetAttachmentsReleases: cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsReleases),
 		QuotaLimitCategoryAssetAttachmentsIssues:   cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsIssues),
 		QuotaLimitCategoryAssetArtifacts:           cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetArtifacts),
@@ -220,6 +220,7 @@ func GetQuotaLimitsForGroups(groups []*quota_model.QuotaGroup) QuotaLimits {
 			limits.Git.LFS = maxOf(limits.Git.GetLFS(), group.LimitGitLFS)
 
 			limits.Assets.Total = maxOf(limits.Assets.GetTotal(), group.LimitAssetTotal)
+			limits.Assets.Attachments.Total = maxOf(limits.Assets.GetAttachments().GetTotal(), group.LimitAssetAttachmentsTotal)
 			limits.Assets.Attachments.Releases = maxOf(limits.Assets.GetAttachments().GetReleases(), group.LimitAssetAttachmentsReleases)
 			limits.Assets.Attachments.Issues = maxOf(limits.Assets.GetAttachments().GetIssues(), group.LimitAssetAttachmentsIssues)
 			limits.Assets.Packages = maxOf(limits.Assets.GetPackages(), group.LimitAssetPackages)

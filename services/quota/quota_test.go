@@ -117,7 +117,9 @@ func TestQuotaLimits(t *testing.T) {
 				},
 				"AssetTotal": {
 					Group: quota_model.QuotaGroup{LimitAssetTotal: Ptr(int64(1024))},
-					// Expectation: Total, AssetTotal, and the rest of the Asset category is checked against AssetTotal. The rest aren't checked.
+					// Expectation: Total, AssetTotal, and the rest of the Asset
+					// category is checked against AssetTotal. The rest aren't
+					// checked.
 					Expected: mergeExpectations(
 						makeExpectationForCategory(
 							quota_service.QuotaLimitCategoryTotal,
@@ -142,6 +144,42 @@ func TestQuotaLimits(t *testing.T) {
 						repeatExpectations(
 							TestExpectation{},
 							makeCatList(quota_service.QuotaLimitCategoryGitTotal, quota_service.QuotaLimitCategoryGitLFS)...,
+						),
+					),
+				},
+				"AssetAttachmentsTotal": {
+					Group: quota_model.QuotaGroup{LimitAssetAttachmentsTotal: Ptr(int64(1024))},
+					// Expectation: Total, AssetTotal, AssetAttachments* are
+					// checked against AssetAttachmentsTotal. The rest aren't
+					// checked.
+					Expected: mergeExpectations(
+						makeExpectationForCategory(
+							quota_service.QuotaLimitCategoryTotal,
+							TestExpectation{
+								N: 1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+								},
+							},
+						),
+						repeatExpectations(
+							TestExpectation{
+								N: 1,
+								Limits: []int64{1024},
+								Categories: []quota_service.QuotaLimitCategory{
+									quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+								},
+							},
+							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryAssetAttachmentsIssues)...,
+						),
+						repeatExpectations(
+							TestExpectation{},
+							makeCatList(quota_service.QuotaLimitCategoryGitTotal, quota_service.QuotaLimitCategoryGitLFS)...,
+						),
+						repeatExpectations(
+							TestExpectation{},
+							makeCatList(quota_service.QuotaLimitCategoryAssetArtifacts, quota_service.QuotaLimitCategoryAssetPackages)...,
 						),
 					),
 				},
