@@ -61,10 +61,6 @@ func TestQuotaLimits(t *testing.T) {
 							},
 							makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitLFS)...,
 						),
-						repeatExpectations(
-							TestExpectation{},
-							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryEnd)...,
-						),
 					),
 				},
 				"GitCode": {
@@ -81,10 +77,6 @@ func TestQuotaLimits(t *testing.T) {
 								},
 							},
 							makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryGitCode)...,
-						),
-						repeatExpectations(
-							TestExpectation{},
-							makeCatList(quota_service.QuotaLimitCategoryGitLFS, quota_service.QuotaLimitCategoryEnd)...,
 						),
 					),
 				},
@@ -104,14 +96,6 @@ func TestQuotaLimits(t *testing.T) {
 							quota_service.QuotaLimitCategoryTotal,
 							quota_service.QuotaLimitCategoryGitTotal,
 							quota_service.QuotaLimitCategoryGitLFS,
-						),
-						makeExpectationForCategory(
-							quota_service.QuotaLimitCategoryGitCode,
-							TestExpectation{},
-						),
-						repeatExpectations(
-							TestExpectation{},
-							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryEnd)...,
 						),
 					),
 				},
@@ -141,10 +125,6 @@ func TestQuotaLimits(t *testing.T) {
 							},
 							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryAssetPackages)...,
 						),
-						repeatExpectations(
-							TestExpectation{},
-							makeCatList(quota_service.QuotaLimitCategoryGitTotal, quota_service.QuotaLimitCategoryGitLFS)...,
-						),
 					),
 				},
 				"AssetAttachmentsTotal": {
@@ -172,14 +152,6 @@ func TestQuotaLimits(t *testing.T) {
 								},
 							},
 							makeCatList(quota_service.QuotaLimitCategoryAssetTotal, quota_service.QuotaLimitCategoryAssetAttachmentsIssues)...,
-						),
-						repeatExpectations(
-							TestExpectation{},
-							makeCatList(quota_service.QuotaLimitCategoryGitTotal, quota_service.QuotaLimitCategoryGitLFS)...,
-						),
-						repeatExpectations(
-							TestExpectation{},
-							makeCatList(quota_service.QuotaLimitCategoryAssetArtifacts, quota_service.QuotaLimitCategoryAssetPackages)...,
 						),
 					),
 				},

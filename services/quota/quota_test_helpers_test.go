@@ -113,8 +113,13 @@ func runTestCases(t *testing.T, testCases map[string]TestCase) {
 		t.Run(name, func(t *testing.T) {
 			limits := limitsForSingleGroup(testCase.Group)
 
-			for category, expectation := range testCase.Expected {
+			for category := range quota_service.QuotaLimitCategoryEnd {
 				t.Run("resolve-for:" + category.String(), func(t *testing.T) {
+					expectation, ok := testCase.Expected[category]
+					if !ok {
+						expectation = TestExpectation{}
+					}
+
 					n, itemLimits, itemCategories := limits.ResolveForCategory(category)
 
 					require.EqualValues(t, expectation.N, n, "n != expectation.N")
