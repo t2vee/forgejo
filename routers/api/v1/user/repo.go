@@ -83,7 +83,32 @@ func ListUserRepos(ctx *context.APIContext) {
 	listUserRepos(ctx, ctx.ContextUser, private)
 }
 
-func listMyRepos(ctx *context.APIContext, bySize bool) {
+// ListMyRepos - list the repositories you own or have access to.
+func ListMyRepos(ctx *context.APIContext) {
+	// swagger:operation GET /user/repos user userCurrentListRepos
+	// ---
+	// summary: List the repos that the authenticated user owns
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// - name: order_by
+	//   in: query
+	//   description: order the repositories by name (default), id, or size
+	//   type: string
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/RepositoryList"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
+
 	opts := &repo_model.SearchRepoOptions{
 		ListOptions:        utils.GetListOptions(ctx),
 		Actor:              ctx.Doer,
@@ -91,8 +116,18 @@ func listMyRepos(ctx *context.APIContext, bySize bool) {
 		Private:            ctx.IsSigned,
 		IncludeDescription: true,
 	}
-	if bySize {
+	orderBy := ctx.FormTrim("order_by")
+	switch orderBy {
+	case "name":
+		opts.OrderBy = "name ASC"
+	case "size":
 		opts.OrderBy = "size DESC"
+	case "id":
+		opts.OrderBy = "id ASC"
+	case "":
+	default:
+		ctx.Error(http.StatusUnprocessableEntity, "", "invalid order_by")
+		return
 	}
 
 	var err error
@@ -118,33 +153,6 @@ func listMyRepos(ctx *context.APIContext, bySize bool) {
 	ctx.SetLinkHeader(int(count), opts.ListOptions.PageSize)
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, &results)
-}
-
-// ListMyRepos - list the repositories you own or have access to.
-func ListMyRepos(ctx *context.APIContext) {
-	// swagger:operation GET /user/repos user userCurrentListRepos
-	// ---
-	// summary: List the repos that the authenticated user owns
-	// produces:
-	// - application/json
-	// parameters:
-	// - name: page
-	//   in: query
-	//   description: page number of results to return (1-based)
-	//   type: integer
-	// - name: limit
-	//   in: query
-	//   description: page size of results
-	//   type: integer
-	// responses:
-	//   "200":
-	//     "$ref": "#/responses/RepositoryList"
-
-	listMyRepos(ctx, false)
-}
-
-func ListMyReposBySize(ctx *context.APIContext) {
-	listMyRepos(ctx, true)
 }
 
 // ListOrgRepos - list the repositories of an organization.

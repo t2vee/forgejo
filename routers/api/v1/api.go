@@ -895,10 +895,7 @@ func Routes() *web.Route {
 		m.Group("/user", func() {
 			m.Get("", user.GetAuthenticatedUser)
 			if setting.Quota.Enabled {
-				m.Group("/quota", func() {
-					m.Get("", user.GetQuota)
-					m.Get("/repos", user.ListMyReposBySize)
-				})
+				m.Get("/quota", user.GetQuota)
 			}
 			m.Group("/settings", func() {
 				m.Get("", user.GetUserSettings)
