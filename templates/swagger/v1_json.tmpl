@@ -17867,6 +17867,37 @@
         }
       }
     },
+    "/user/quota/artifacts": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "List the artifacts affecting the authenticated user's quota",
+        "operationId": "userListQuotaArtifacts",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "page number of results to return (1-based)",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "page size of results",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/QuotaUsedArtifactList"
+          }
+        }
+      }
+    },
     "/user/quota/attachments": {
       "get": {
         "produces": [
@@ -24872,6 +24903,37 @@
       },
       "x-go-package": "code.gitea.io/gitea/services/quota"
     },
+    "QuotaUsedArtifact": {
+      "description": "QuotaUsedArtifact represents an artifact counting towards a user's quota",
+      "type": "object",
+      "properties": {
+        "html_url": {
+          "description": "HTML URL to the action run containing the artifact",
+          "type": "string",
+          "x-go-name": "HTMLURL"
+        },
+        "name": {
+          "description": "Name of the artifact",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "size": {
+          "description": "Size of the artifact (compressed)",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        }
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
+    "QuotaUsedArtifactList": {
+      "description": "QuotaUsedArtifactList represents a list of artifacts counting towards a user's quota",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/QuotaUsedArtifact"
+      },
+      "x-go-package": "code.gitea.io/gitea/modules/structs"
+    },
     "QuotaUsedAttachment": {
       "description": "QuotaUsedAttachment represents an attachment counting towards a user's quota",
       "type": "object",
@@ -27174,6 +27236,12 @@
       "description": "QuotaGroupList",
       "schema": {
         "$ref": "#/definitions/QuotaGroupList"
+      }
+    },
+    "QuotaUsedArtifactList": {
+      "description": "QuotaUsedArtifactList",
+      "schema": {
+        "$ref": "#/definitions/QuotaUsedArtifactList"
       }
     },
     "QuotaUsedAttachmentList": {

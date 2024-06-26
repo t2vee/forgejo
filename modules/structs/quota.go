@@ -46,3 +46,16 @@ type QuotaUsedPackage struct {
 	// HTML URL to the package version
 	HTMLURL string `json:"html_url"`
 }
+
+// QuotaUsedArtifactList represents a list of artifacts counting towards a user's quota
+type QuotaUsedArtifactList []*QuotaUsedArtifact
+
+// QuotaUsedArtifact represents an artifact counting towards a user's quota
+type QuotaUsedArtifact struct {
+	// Name of the artifact
+	Name string `json:"name"`
+	// Size of the artifact (compressed)
+	Size int64 `json:"size"`
+	// HTML URL to the action run containing the artifact
+	HTMLURL string `json:"html_url"`
+}

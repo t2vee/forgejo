@@ -30,6 +30,13 @@ type swaggerQuotaUsedPackageList struct {
 	Body api.QuotaUsedPackageList `json:"body"`
 }
 
+// QuotaUsedArtifactList
+// swagger:response QuotaUsedArtifactList
+type swaggerQuotaUsedArtifactList struct {
+	// in:body
+	Body api.QuotaUsedArtifactList `json:"body"`
+}
+
 // QuotaGroup
 // swagger:response QuotaGroup
 type swaggerResponseQuotaGroup struct {

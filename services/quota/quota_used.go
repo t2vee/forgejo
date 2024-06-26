@@ -8,6 +8,7 @@ package quota
 import (
 	"context"
 
+	action_model "code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
 	package_model "code.gitea.io/gitea/models/packages"
 	repo_model "code.gitea.io/gitea/models/repo"
@@ -142,6 +143,22 @@ func GetQuotaPackagesForUser(ctx context.Context, userID int64, opts db.ListOpti
 	}
 
 	return count, &pkgs, nil
+}
+
+func GetQuotaArtifactsForUser(ctx context.Context, userID int64, opts db.ListOptions) (int64, *[]*action_model.ActionArtifact, error) {
+	var artifacts []*action_model.ActionArtifact
+
+	sess := createQueryFor(ctx, userID, "artifacts").
+		OrderBy("`action_artifact`.file_compressed_size DESC")
+	if opts.PageSize > 0 {
+		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
+	}
+	count, err := sess.FindAndCount(&artifacts)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return count, &artifacts, nil
 }
 
 func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {

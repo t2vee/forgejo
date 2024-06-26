@@ -116,3 +116,40 @@ func ListQuotaPackages(ctx *context.APIContext) {
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, result)
 }
+
+// ListQuotaArtifacts lists artifacts affecting the authenticated user's quota
+func ListQuotaArtifacts(ctx *context.APIContext) {
+	// swagger:operation GET /user/quota/artifacts user userListQuotaArtifacts
+	// ---
+	// summary: List the artifacts affecting the authenticated user's quota
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/QuotaUsedArtifactList"
+
+	opts := utils.GetListOptions(ctx)
+	count, artifacts, err := quota_service.GetQuotaArtifactsForUser(ctx, ctx.Doer.ID, opts)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetQuotaArtifactsForUser", err)
+		return
+	}
+
+	result, err := convert.ToQuotaUsedArtifactList(ctx, *artifacts)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedArtifactList", err)
+	}
+
+	ctx.SetLinkHeader(int(count), opts.PageSize)
+	ctx.SetTotalCountHeader(count)
+	ctx.JSON(http.StatusOK, result)
+}

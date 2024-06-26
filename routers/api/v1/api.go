@@ -899,6 +899,7 @@ func Routes() *web.Route {
 					m.Get("", user.GetQuota)
 					m.Get("/attachments", user.ListQuotaAttachments)
 					m.Get("/packages", user.ListQuotaPackages)
+					m.Get("/artifacts", user.ListQuotaArtifacts)
 				})
 			}
 			m.Group("/settings", func() {

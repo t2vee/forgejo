@@ -9,6 +9,7 @@ import (
 	"context"
 	"strconv"
 
+	action_model "code.gitea.io/gitea/models/actions"
 	issue_model "code.gitea.io/gitea/models/issues"
 	package_model "code.gitea.io/gitea/models/packages"
 	repo_model "code.gitea.io/gitea/models/repo"
@@ -86,6 +87,24 @@ func ToQuotaUsedPackageList(ctx context.Context, packages []*package_model.Packa
 			Version: d.Version.Version,
 			Size:    size,
 			HTMLURL: d.VersionHTMLURL(),
+		}
+	}
+
+	return &result, nil
+}
+
+func ToQuotaUsedArtifactList(ctx context.Context, artifacts []*action_model.ActionArtifact) (*api.QuotaUsedArtifactList, error) {
+	result := make(api.QuotaUsedArtifactList, len(artifacts))
+	for i, a := range artifacts {
+		run, err := action_model.GetRunByID(ctx, a.RunID)
+		if err != nil {
+			return nil, err
+		}
+
+		result[i] = &api.QuotaUsedArtifact{
+			Name:    a.ArtifactName,
+			Size:    a.FileCompressedSize,
+			HTMLURL: run.HTMLURL(),
 		}
 	}
 
