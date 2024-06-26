@@ -131,7 +131,8 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 
 	_, err = db.GetEngine(ctx).Select("SUM(file_compressed_size) AS size").
 		Table("action_artifact").
-		Where("owner_id = ?", userID).
+		Join("INNER", "`repository`", "`action_artifact`.repo_id = `repository`.id").
+		Where("`repository`.owner_id = ?", userID).
 		Get(&used.Assets.Artifacts)
 	if err != nil {
 		return nil, err
