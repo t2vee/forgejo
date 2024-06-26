@@ -75,13 +75,39 @@ func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
 	return 0
 }
 
+func createQueryFor(ctx context.Context, userID int64, q string) db.Engine {
+	session := db.GetEngine(ctx)
+
+	switch q {
+	case "repositories":
+		return session.Table("repository").
+			Where("owner_id = ?", userID)
+	case "attachments":
+		return session.
+			Table("attachment").
+			Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
+			Where("`repository`.owner_id = ?", userID)
+	case "artifacts":
+		return session.
+			Table("action_artifact").
+			Join("INNER", "`repository`", "`action_artifact`.repo_id = `repository`.id").
+			Where("`repository`.owner_id = ?", userID)
+	case "packages":
+		return session.
+			Table("package_blob").
+			Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
+			Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
+			Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
+			Join("INNER", "`repository`", "`package`.repo_id = `repository`.id")
+	}
+
+	return session
+}
+
 func GetQuotaAttachmentsForUser(ctx context.Context, userID int64, opts db.ListOptions) (int64, *[]*repo_model.Attachment, error) {
 	var attachments []*repo_model.Attachment
 
-	sess := db.GetEngine(ctx).
-		Table("attachment").
-		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
-		Where("`repository`.owner_id = ?", userID)
+	sess := createQueryFor(ctx, userID, "attachments")
 
 	count, err := sess.
 		Count(new(repo_model.Attachment))
@@ -103,47 +129,39 @@ func GetQuotaAttachmentsForUser(ctx context.Context, userID int64, opts db.ListO
 func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {
 	var used QuotaUsed
 
-	_, err := db.GetEngine(ctx).Select("SUM(git_size) AS code, SUM(lfs_size) AS lfs").
-		Table("repository").
-		Where("owner_id = ?", userID).
+	_, err := createQueryFor(ctx, userID, "repositories").
+		Select("SUM(git_size) AS code, SUM(lfs_size) AS lfs").
 		Get(&used.Git)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.GetEngine(ctx).Select("SUM(`attachment`.size) AS size").
-		Table("attachment").
-		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
-		Where("`repository`.owner_id = ? AND `attachment`.release_id != 0", userID).
+	_, err = createQueryFor(ctx, userID, "attachments").
+		Select("SUM(`attachment`.size) AS size").
+		Where("`attachment`.release_id != 0").
 		Get(&used.Assets.Attachments.Releases)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.GetEngine(ctx).Select("SUM(`attachment`.size) AS size").
-		Table("attachment").
-		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
-		Where("`repository`.owner_id = ? AND `attachment`.release_id = 0", userID).
+	_, err = createQueryFor(ctx, userID, "attachments").
+		Select("SUM(`attachment`.size) AS size").
+		Where("`attachment`.release_id = 0").
 		Get(&used.Assets.Attachments.Issues)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.GetEngine(ctx).Select("SUM(file_compressed_size) AS size").
-		Table("action_artifact").
-		Join("INNER", "`repository`", "`action_artifact`.repo_id = `repository`.id").
-		Where("`repository`.owner_id = ?", userID).
+	_, err = createQueryFor(ctx, userID, "artifacts").
+		Select("SUM(file_compressed_size) AS size").
 		Get(&used.Assets.Artifacts)
 	if err != nil {
 		return nil, err
 	}
 
 	var floatingPackages int64
-	_, err = db.GetEngine(ctx).Select("SUM(package_blob.size) AS size").
-		Table("package_blob").
-		Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
-		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
-		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
+	_, err = createQueryFor(ctx, userID, "packages").
+		Select("SUM(package_blob.size) AS size").
 		Where("`package`.owner_id = ? AND `package`.repo_id = 0", userID).
 		Get(&floatingPackages)
 	if err != nil {
@@ -151,17 +169,14 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 	}
 
 	var repoPackages int64
-	_, err = db.GetEngine(ctx).Select("SUM(package_blob.size) AS size").
-		Table("package_blob").
-		Join("INNER", "`package_file`", "`package_file`.blob_id = `package_blob`.id").
-		Join("INNER", "`package_version`", "`package_file`.version_id = `package_version`.id").
-		Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
-		Join("INNER", "`repository`", "`package`.repo_id = `repository`.id").
+	_, err = createQueryFor(ctx, userID, "packages").
+		Select("SUM(package_blob.size) AS size").
 		Where("`repository`.owner_id = ?", userID).
 		Get(&repoPackages)
 	if err != nil {
 		return nil, err
 	}
+
 	used.Assets.Packages = floatingPackages + repoPackages
 
 	return &used, nil
