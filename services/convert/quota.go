@@ -55,8 +55,8 @@ func ToQuotaUsedAttachmentList(ctx context.Context, attachments []*repo_model.At
 
 		apiURL := capiURL + "/assets/" + strconv.FormatInt(a.ID, 10)
 		result[i] = &api.QuotaUsedAttachment{
-			Name: a.Name,
-			Size: a.Size,
+			Name:   a.Name,
+			Size:   a.Size,
 			APIURL: apiURL,
 		}
 		result[i].ContainedIn.APIURL = capiURL

@@ -75,20 +75,29 @@ func (u *QuotaUsed) getUsedForCategory(category QuotaLimitCategory) int64 {
 	return 0
 }
 
-func GetQuotaAttachmentsForUser(ctx context.Context, userID int64) (*[]*repo_model.Attachment, error) {
+func GetQuotaAttachmentsForUser(ctx context.Context, userID int64, opts db.ListOptions) (int64, *[]*repo_model.Attachment, error) {
 	var attachments []*repo_model.Attachment
 
-	err := db.GetEngine(ctx).Select("`attachment`.*").
+	sess := db.GetEngine(ctx).
 		Table("attachment").
 		Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
-		Where("`repository`.owner_id = ?", userID).
-		OrderBy("`attachment`.size DESC").
-		Find(&attachments)
+		Where("`repository`.owner_id = ?", userID)
+
+	count, err := sess.
+		Count(new(repo_model.Attachment))
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
-	return &attachments, nil
+	if opts.PageSize > 0 {
+		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
+	}
+	err = sess.OrderBy("`attachment`.size DESC").Find(&attachments)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return count, &attachments, nil
 }
 
 func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {

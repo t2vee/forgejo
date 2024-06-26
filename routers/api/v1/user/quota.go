@@ -6,6 +6,7 @@ package user
 import (
 	"net/http"
 
+	"code.gitea.io/gitea/routers/api/v1/utils"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/convert"
 	quota_service "code.gitea.io/gitea/services/quota"
@@ -52,7 +53,9 @@ func ListQuotaAttachments(ctx *context.APIContext) {
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/QuotaUsedAttachmentList"
-	attachments, err := quota_service.GetQuotaAttachmentsForUser(ctx, ctx.Doer.ID)
+
+	opts := utils.GetListOptions(ctx)
+	count, attachments, err := quota_service.GetQuotaAttachmentsForUser(ctx, ctx.Doer.ID, opts)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaAttachmentsForUser", err)
 		return
@@ -63,5 +66,7 @@ func ListQuotaAttachments(ctx *context.APIContext) {
 		ctx.Error(http.StatusInternalServerError, "convert.ToQuotaUsedAttachments", err)
 	}
 
+	ctx.SetLinkHeader(int(count), opts.PageSize)
+	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, result)
 }
