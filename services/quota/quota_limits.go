@@ -230,16 +230,16 @@ func getQuotaLimitsForGroups(groups []*quota_model.QuotaGroup) QuotaLimits {
 	return limits
 }
 
-func (s *QuotaLimitsGit) IsEmpty() bool {
-	return s.Total == nil && s.Code == nil && s.LFS == nil
+func (l *QuotaLimitsGit) IsEmpty() bool {
+	return l.Total == nil && l.Code == nil && l.LFS == nil
 }
 
-func (s *QuotaLimitsAssets) IsEmpty() bool {
-	return s.Total == nil && s.Attachments == nil && s.Artifacts == nil && s.Packages == nil
+func (l *QuotaLimitsAssets) IsEmpty() bool {
+	return l.Total == nil && l.Attachments == nil && l.Artifacts == nil && l.Packages == nil
 }
 
-func (s *QuotaLimitsAttachments) IsEmpty() bool {
-	return s.Total == nil && s.Releases == nil && s.Issues == nil
+func (l *QuotaLimitsAttachments) IsEmpty() bool {
+	return l.Total == nil && l.Releases == nil && l.Issues == nil
 }
 
 func (l *QuotaLimitsGit) GetTotal() *int64 {
