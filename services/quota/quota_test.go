@@ -151,6 +151,52 @@ func TestQuotaLimits(t *testing.T) {
 						quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
 					),
 				},
+				"AssetAttachmentsIssues": {
+					Group: quota_model.QuotaGroup{LimitAssetAttachmentsIssues: Ptr(int64(1024))},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N: 1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
+							},
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryAssetTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
+					),
+				},
+				"AssetPackages": {
+					Group: quota_model.QuotaGroup{LimitAssetPackages: Ptr(int64(1024))},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N: 1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryAssetPackages,
+							},
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryAssetTotal,
+						quota_service.QuotaLimitCategoryAssetPackages,
+					),
+				},
+				"AssetArtifacts": {
+					Group: quota_model.QuotaGroup{LimitAssetArtifacts: Ptr(int64(1024))},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N: 1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryAssetArtifacts,
+							},
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryAssetTotal,
+						quota_service.QuotaLimitCategoryAssetArtifacts,
+					),
+				},
 			}
 
 			runTestCases(t, tests)
