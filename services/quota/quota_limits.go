@@ -148,7 +148,7 @@ func (l *QuotaLimits) ResolveForCategory(category QuotaLimitCategory) (int, []in
 		QuotaLimitCategoryGitTotal:                 cats(QuotaLimitCategoryTotal, QuotaLimitCategoryGitTotal, QuotaLimitCategoryGitCode, QuotaLimitCategoryGitLFS),
 		QuotaLimitCategoryGitCode:                  cats(QuotaLimitCategoryTotal, QuotaLimitCategoryGitTotal, QuotaLimitCategoryGitCode),
 		QuotaLimitCategoryGitLFS:                   cats(QuotaLimitCategoryTotal, QuotaLimitCategoryGitTotal, QuotaLimitCategoryGitLFS),
-		QuotaLimitCategoryAssetTotal:               cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetArtifacts, QuotaLimitCategoryAssetPackages),
+		QuotaLimitCategoryAssetTotal:               cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsReleases, QuotaLimitCategoryAssetAttachmentsIssues, QuotaLimitCategoryAssetArtifacts, QuotaLimitCategoryAssetPackages),
 		QuotaLimitCategoryAssetAttachmentsTotal:    cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsReleases, QuotaLimitCategoryAssetAttachmentsIssues),
 		QuotaLimitCategoryAssetAttachmentsReleases: cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsReleases),
 		QuotaLimitCategoryAssetAttachmentsIssues:   cats(QuotaLimitCategoryTotal, QuotaLimitCategoryAssetTotal, QuotaLimitCategoryAssetAttachmentsTotal, QuotaLimitCategoryAssetAttachmentsIssues),

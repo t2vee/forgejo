@@ -155,6 +155,22 @@ func TestQuotaLimits(t *testing.T) {
 						),
 					),
 				},
+				"AssetAttachmentsReleases": {
+					Group: quota_model.QuotaGroup{LimitAssetAttachmentsReleases: Ptr(int64(1024))},
+					Expected: repeatExpectations(
+						TestExpectation{
+							N: 1,
+							Limits: []int64{1024},
+							Categories: []quota_service.QuotaLimitCategory{
+								quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
+							},
+						},
+						quota_service.QuotaLimitCategoryTotal,
+						quota_service.QuotaLimitCategoryAssetTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+						quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
+					),
+				},
 			}
 
 			runTestCases(t, tests)
