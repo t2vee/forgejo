@@ -51,7 +51,7 @@ func apiCreateUser(t *testing.T, username string) func() {
 	session.MakeRequest(t, req, http.StatusCreated)
 
 	return func() {
-		req := NewRequest(t, "DELETE", "/api/v1/admin/users/" + username).AddTokenAuth(token)
+		req := NewRequest(t, "DELETE", "/api/v1/admin/users/"+username).AddTokenAuth(token)
 		session.MakeRequest(t, req, http.StatusNoContent)
 	}
 }
