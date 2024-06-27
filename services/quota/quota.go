@@ -17,12 +17,9 @@ func IsUsedWithinLimits(used *QuotaUsed, limits *QuotaLimits, category QuotaLimi
 		if itemLimits[i] == -1 {
 			continue
 		}
-		if itemLimits[i] == 0 {
-			return false
-		}
 
 		itemUsed := used.GetUsedForCategory(categories[i])
-		if itemUsed >= itemLimits[i] {
+		if itemUsed > itemLimits[i] {
 			return false
 		}
 	}

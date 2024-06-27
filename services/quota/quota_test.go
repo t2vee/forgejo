@@ -44,6 +44,49 @@ func assertQuotaCheck(t *testing.T, used quota_service.QuotaUsed, limits quota_s
 	}
 }
 
+func TestQuotaUseComplex(t *testing.T) {
+	groups := []*quota_model.QuotaGroup{
+		{
+			LimitGitCode: Ptr(int64(51200)),
+		},
+		{
+			LimitGitLFS: Ptr(int64(0)),
+		},
+		{
+			LimitAssetAttachmentsTotal: Ptr(int64(4096)),
+			LimitAssetArtifacts:        Ptr(int64(256)),
+			LimitAssetPackages:         Ptr(int64(8192)),
+		},
+	}
+	limits := quota_service.GetQuotaLimitsForGroups(groups)
+
+	t.Run("0 used", func(t *testing.T) {
+		used := quota_service.QuotaUsed{}
+		assertQuotaCheck(t, used, limits,
+			makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryEnd),
+			[]quota_service.QuotaLimitCategory{},
+		)
+	})
+
+	t.Run("some resources", func(t *testing.T) {
+		used := makeTestUsed()
+		assertQuotaCheck(t, used, limits,
+			[]quota_service.QuotaLimitCategory{
+				quota_service.QuotaLimitCategoryGitCode,
+				quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+				quota_service.QuotaLimitCategoryAssetPackages,
+			},
+			[]quota_service.QuotaLimitCategory{
+				quota_service.QuotaLimitCategoryTotal,
+				quota_service.QuotaLimitCategoryGitTotal,
+				quota_service.QuotaLimitCategoryGitLFS,
+				quota_service.QuotaLimitCategoryAssetTotal,
+				quota_service.QuotaLimitCategoryAssetArtifacts,
+			},
+		)
+	})
+}
+
 func TestQuotaUsedWithoutLimits(t *testing.T) {
 	used := makeTestUsed()
 	groups := []*quota_model.QuotaGroup{}
