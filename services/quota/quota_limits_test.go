@@ -10,31 +10,30 @@ import (
 
 	quota_model "code.gitea.io/gitea/models/quota"
 	quota_service "code.gitea.io/gitea/services/quota"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestQuotaLimitsWithoutGroups(t *testing.T) {
-	groups := []*quota_model.QuotaGroup{}
-	limits := quota_service.GetQuotaLimitsForGroups(groups)
-
-	assert.Nil(t, limits.Total)
-	assert.Nil(t, limits.Git)
-	assert.Nil(t, limits.Assets)
-
-	for _, category := range allCategories {
-		n, _, _ := limits.ResolveForCategory(category)
-		assert.EqualValues(t, 0, n)
+	tests := map[string]LimitTestCase{
+		"no groups": {
+			Groups: []*quota_model.QuotaGroup{},
+		},
 	}
+
+	runLimitTestCases(t, tests)
+}
+
+func g(group quota_model.QuotaGroup) []*quota_model.QuotaGroup {
+	groups := []*quota_model.QuotaGroup{&group}
+	return groups
 }
 
 func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
-	tests := map[string]TestCase{
+	tests := map[string]LimitTestCase{
 		"Total": {
-			Group: quota_model.QuotaGroup{LimitTotal: Ptr(int64(1024))},
+			Groups: g(quota_model.QuotaGroup{LimitTotal: Ptr(int64(1024))}),
 			// Expectation: Every category is checked against Total
-			Expected: repeatExpectations(
-				TestExpectation{
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -45,11 +44,11 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"GitTotal": {
-			Group: quota_model.QuotaGroup{LimitGitTotal: Ptr(int64(1024))},
+			Groups: g(quota_model.QuotaGroup{LimitGitTotal: Ptr(int64(1024))}),
 			// Expectation: Every Git category (& Total) is checked
 			// against LimitGitTotal. The rest aren't checked.
-			Expected: repeatExpectations(
-				TestExpectation{
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -60,11 +59,11 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"GitCode": {
-			Group: quota_model.QuotaGroup{LimitGitCode: Ptr(int64(1024))},
+			Groups: g(quota_model.QuotaGroup{LimitGitCode: Ptr(int64(1024))}),
 			// Expectation: Total, GitTotal, and GitCode are checked
 			// against GitCode. The rest aren't checked.
-			Expected: repeatExpectations(
-				TestExpectation{
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -75,11 +74,11 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"GitLFS": {
-			Group: quota_model.QuotaGroup{LimitGitLFS: Ptr(int64(1024))},
+			Groups: g(quota_model.QuotaGroup{LimitGitLFS: Ptr(int64(1024))}),
 			// Expectation: Total, GitTotal, and GitLFS are checked
 			// against GitLFS. The rest aren't checked.
-			Expected: repeatExpectations(
-				TestExpectation{
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -92,12 +91,12 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"AssetTotal": {
-			Group: quota_model.QuotaGroup{LimitAssetTotal: Ptr(int64(1024))},
+			Groups: g(quota_model.QuotaGroup{LimitAssetTotal: Ptr(int64(1024))}),
 			// Expectation: Total, AssetTotal, and the rest of the Asset
 			// category is checked against AssetTotal. The rest aren't
 			// checked.
-			Expected: repeatExpectations(
-				TestExpectation{
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -114,12 +113,12 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"AssetAttachmentsTotal": {
-			Group: quota_model.QuotaGroup{LimitAssetAttachmentsTotal: Ptr(int64(1024))},
+			Groups: g(quota_model.QuotaGroup{LimitAssetAttachmentsTotal: Ptr(int64(1024))}),
 			// Expectation: Total, AssetTotal, AssetAttachments* are
 			// checked against AssetAttachmentsTotal. The rest aren't
 			// checked.
-			Expected: repeatExpectations(
-				TestExpectation{
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -134,9 +133,9 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"AssetAttachmentsReleases": {
-			Group: quota_model.QuotaGroup{LimitAssetAttachmentsReleases: Ptr(int64(1024))},
-			Expected: repeatExpectations(
-				TestExpectation{
+			Groups: g(quota_model.QuotaGroup{LimitAssetAttachmentsReleases: Ptr(int64(1024))}),
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -150,9 +149,9 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"AssetAttachmentsIssues": {
-			Group: quota_model.QuotaGroup{LimitAssetAttachmentsIssues: Ptr(int64(1024))},
-			Expected: repeatExpectations(
-				TestExpectation{
+			Groups: g(quota_model.QuotaGroup{LimitAssetAttachmentsIssues: Ptr(int64(1024))}),
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -166,9 +165,9 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"AssetPackages": {
-			Group: quota_model.QuotaGroup{LimitAssetPackages: Ptr(int64(1024))},
-			Expected: repeatExpectations(
-				TestExpectation{
+			Groups: g(quota_model.QuotaGroup{LimitAssetPackages: Ptr(int64(1024))}),
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -181,9 +180,9 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 			),
 		},
 		"AssetArtifacts": {
-			Group: quota_model.QuotaGroup{LimitAssetArtifacts: Ptr(int64(1024))},
-			Expected: repeatExpectations(
-				TestExpectation{
+			Groups: g(quota_model.QuotaGroup{LimitAssetArtifacts: Ptr(int64(1024))}),
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
 					N:      1,
 					Limits: []int64{1024},
 					Categories: []quota_service.QuotaLimitCategory{
@@ -197,19 +196,19 @@ func TestQuotaLimitsSingleGroupSingleLimit(t *testing.T) {
 		},
 	}
 
-	runTestCases(t, tests)
+	runLimitTestCases(t, tests)
 }
 
 func TestQuotaSingleGroupComplexLimits(t *testing.T) {
-	tests := map[string]TestCase{
+	tests := map[string]LimitTestCase{
 		"GitTotal + GitCode": {
-			Group: quota_model.QuotaGroup{
+			Groups: g(quota_model.QuotaGroup{
 				LimitGitTotal: Ptr(int64(1024)),
 				LimitGitCode:  Ptr(int64(2048)),
-			},
-			Expected: mergeExpectations(
-				repeatExpectations(
-					TestExpectation{
+			}),
+			Expected: mergeLimitExpectations(
+				repeatLimitExpectations(
+					LimitTestExpectation{
 						N:      2,
 						Limits: []int64{1024, 2048},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -221,9 +220,9 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 					quota_service.QuotaLimitCategoryGitTotal,
 					quota_service.QuotaLimitCategoryGitCode,
 				),
-				makeExpectationForCategory(
+				makeLimitExpectationForCategory(
 					quota_service.QuotaLimitCategoryGitLFS,
-					TestExpectation{
+					LimitTestExpectation{
 						N:      1,
 						Limits: []int64{1024},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -234,13 +233,13 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 			),
 		},
 		"AssetTotal + AttachmentsIssues": {
-			Group: quota_model.QuotaGroup{
+			Groups: g(quota_model.QuotaGroup{
 				LimitAssetTotal:             Ptr(int64(1024)),
 				LimitAssetAttachmentsIssues: Ptr(int64(2048)),
-			},
-			Expected: mergeExpectations(
-				repeatExpectations(
-					TestExpectation{
+			}),
+			Expected: mergeLimitExpectations(
+				repeatLimitExpectations(
+					LimitTestExpectation{
 						N:      2,
 						Limits: []int64{1024, 2048},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -253,8 +252,8 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 					quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
 					quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
 				),
-				repeatExpectations(
-					TestExpectation{
+				repeatLimitExpectations(
+					LimitTestExpectation{
 						N:      1,
 						Limits: []int64{1024},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -268,13 +267,13 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 			),
 		},
 		"GitCode + GitLFS": {
-			Group: quota_model.QuotaGroup{
+			Groups: g(quota_model.QuotaGroup{
 				LimitGitCode: Ptr(int64(1024)),
 				LimitGitLFS:  Ptr(int64(2048)),
-			},
-			Expected: mergeExpectations(
-				repeatExpectations(
-					TestExpectation{
+			}),
+			Expected: mergeLimitExpectations(
+				repeatLimitExpectations(
+					LimitTestExpectation{
 						N:      2,
 						Limits: []int64{1024, 2048},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -285,9 +284,9 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 					quota_service.QuotaLimitCategoryTotal,
 					quota_service.QuotaLimitCategoryGitTotal,
 				),
-				makeExpectationForCategory(
+				makeLimitExpectationForCategory(
 					quota_service.QuotaLimitCategoryGitCode,
-					TestExpectation{
+					LimitTestExpectation{
 						N:      1,
 						Limits: []int64{1024},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -295,9 +294,9 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 						},
 					},
 				),
-				makeExpectationForCategory(
+				makeLimitExpectationForCategory(
 					quota_service.QuotaLimitCategoryGitLFS,
-					TestExpectation{
+					LimitTestExpectation{
 						N:      1,
 						Limits: []int64{2048},
 						Categories: []quota_service.QuotaLimitCategory{
@@ -309,7 +308,7 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 		},
 	}
 
-	runTestCases(t, tests)
+	runLimitTestCases(t, tests)
 }
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.
