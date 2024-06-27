@@ -114,7 +114,7 @@ func runTestCases(t *testing.T, testCases map[string]TestCase) {
 			limits := limitsForSingleGroup(testCase.Group)
 
 			for category := range quota_service.QuotaLimitCategoryEnd {
-				t.Run("resolve-for:" + category.String(), func(t *testing.T) {
+				t.Run("resolve-for:"+category.String(), func(t *testing.T) {
 					expectation, ok := testCase.Expected[category]
 					if !ok {
 						expectation = TestExpectation{}
