@@ -6,6 +6,7 @@
 package quota_test
 
 import (
+	"maps"
 	"testing"
 
 	quota_model "code.gitea.io/gitea/models/quota"
@@ -82,6 +83,14 @@ func makeCatList(start, end quota_service.QuotaLimitCategory) []quota_service.Qu
 		list[i-start] = i
 	}
 	return list
+}
+
+func mergeExpectations(expectations ...TestExpectations) TestExpectations {
+	result := TestExpectations{}
+	for _, es := range expectations {
+		maps.Copy(result, es)
+	}
+	return result
 }
 
 func assertCategories(t *testing.T, expectedCategories, actualCategories []quota_service.QuotaLimitCategory) {
