@@ -311,5 +311,125 @@ func TestQuotaSingleGroupComplexLimits(t *testing.T) {
 	runLimitTestCases(t, tests)
 }
 
+func TestQuotaMultiGroupLimits(t *testing.T) {
+	tests := map[string]LimitTestCase{
+		"Disabled, Unlimited": {
+			Groups: []*quota_model.QuotaGroup{
+				{
+					LimitTotal: Ptr(int64(0)),
+				},
+				{
+					LimitTotal: Ptr(int64(-1)),
+				},
+			},
+			Expected: repeatLimitExpectations(
+				LimitTestExpectation{
+					N:      1,
+					Limits: []int64{-1},
+					Categories: []quota_service.QuotaLimitCategory{
+						quota_service.QuotaLimitCategoryTotal,
+					},
+				},
+				makeCatList(quota_service.QuotaLimitCategoryStart, quota_service.QuotaLimitCategoryEnd)...,
+			),
+		},
+		"Git*, AssetAttachments, AssetPackages": {
+			Groups: []*quota_model.QuotaGroup{
+				{
+					LimitGitCode: Ptr(int64(1024)),
+					LimitGitLFS:  Ptr(int64(2048)),
+				},
+				{
+					LimitAssetAttachmentsTotal: Ptr(int64(512)),
+				},
+				{
+					LimitAssetPackages: Ptr(int64(4096)),
+				},
+			},
+			Expected: mergeLimitExpectations(
+				makeLimitExpectationForCategory(
+					quota_service.QuotaLimitCategoryTotal,
+					LimitTestExpectation{
+						N:      4,
+						Limits: []int64{1024, 2048, 512, 4096},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryGitCode,
+							quota_service.QuotaLimitCategoryGitLFS,
+							quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+							quota_service.QuotaLimitCategoryAssetPackages,
+						},
+					},
+				),
+				makeLimitExpectationForCategory(
+					quota_service.QuotaLimitCategoryGitTotal,
+					LimitTestExpectation{
+						N:      2,
+						Limits: []int64{1024, 2048},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryGitCode,
+							quota_service.QuotaLimitCategoryGitLFS,
+						},
+					},
+				),
+				makeLimitExpectationForCategory(
+					quota_service.QuotaLimitCategoryGitCode,
+					LimitTestExpectation{
+						N:      1,
+						Limits: []int64{1024},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryGitCode,
+						},
+					},
+				),
+				makeLimitExpectationForCategory(
+					quota_service.QuotaLimitCategoryGitLFS,
+					LimitTestExpectation{
+						N:      1,
+						Limits: []int64{2048},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryGitLFS,
+						},
+					},
+				),
+				makeLimitExpectationForCategory(
+					quota_service.QuotaLimitCategoryAssetTotal,
+					LimitTestExpectation{
+						N:      2,
+						Limits: []int64{512, 4096},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+							quota_service.QuotaLimitCategoryAssetPackages,
+						},
+					},
+				),
+				repeatLimitExpectations(
+					LimitTestExpectation{
+						N:      1,
+						Limits: []int64{512},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+						},
+					},
+					quota_service.QuotaLimitCategoryAssetAttachmentsTotal,
+					quota_service.QuotaLimitCategoryAssetAttachmentsIssues,
+					quota_service.QuotaLimitCategoryAssetAttachmentsReleases,
+				),
+				makeLimitExpectationForCategory(
+					quota_service.QuotaLimitCategoryAssetPackages,
+					LimitTestExpectation{
+						N:      1,
+						Limits: []int64{4096},
+						Categories: []quota_service.QuotaLimitCategory{
+							quota_service.QuotaLimitCategoryAssetPackages,
+						},
+					},
+				),
+			),
+		},
+	}
+
+	runLimitTestCases(t, tests)
+}
+
 // I am glad you read this far, but you now feel a pair of eyes watching you.
 // Told you so.
