@@ -116,18 +116,12 @@ func createQueryFor(ctx context.Context, userID int64, q string) db.Engine {
 func GetQuotaAttachmentsForUser(ctx context.Context, userID int64, opts db.ListOptions) (int64, *[]*repo_model.Attachment, error) {
 	var attachments []*repo_model.Attachment
 
-	sess := createQueryFor(ctx, userID, "attachments")
-
-	count, err := sess.
-		Count(new(repo_model.Attachment))
-	if err != nil {
-		return 0, nil, err
-	}
-
+	sess := createQueryFor(ctx, userID, "attachments").
+		OrderBy("`attachment`.size DESC")
 	if opts.PageSize > 0 {
 		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
 	}
-	err = sess.OrderBy("`attachment`.size DESC").Find(&attachments)
+	count, err := sess.FindAndCount(&attachments)
 	if err != nil {
 		return 0, nil, err
 	}
