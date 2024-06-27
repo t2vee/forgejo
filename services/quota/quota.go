@@ -11,6 +11,25 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 )
 
+func IsUsedWithinLimits(used *QuotaUsed, limits *QuotaLimits, category QuotaLimitCategory) bool {
+	n, itemLimits, categories := limits.ResolveForCategory(category)
+	for i := range n {
+		if itemLimits[i] == -1 {
+			continue
+		}
+		if itemLimits[i] == 0 {
+			return false
+		}
+
+		itemUsed := used.GetUsedForCategory(categories[i])
+		if itemUsed >= itemLimits[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func IsWithinQuotaLimit(ctx context.Context, userID int64, category QuotaLimitCategory) (bool, error) {
 	if !setting.Quota.Enabled {
 		return true, nil
@@ -25,21 +44,7 @@ func IsWithinQuotaLimit(ctx context.Context, userID int64, category QuotaLimitCa
 		return false, err
 	}
 
-	n, itemLimits, categories := limits.ResolveForCategory(category)
-	for i := range n {
-		if itemLimits[i] == -1 {
-			continue
-		}
-		if itemLimits[i] == 0 {
-			return false, nil
-		}
-
-		itemUsed := used.GetUsedForCategory(categories[i])
-		if itemUsed >= itemLimits[i] {
-			return false, nil
-		}
-	}
-	return true, nil
+	return IsUsedWithinLimits(used, limits, category), nil
 }
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.
