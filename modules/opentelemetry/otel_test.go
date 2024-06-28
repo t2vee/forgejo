@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"code.gitea.io/gitea/modules/graceful"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/test"
 
@@ -29,7 +30,7 @@ func TestNoopDefault(t *testing.T) {
 	}
 	defer test.MockVariableValue(&newTraceExporter, exp)()
 	ctx := context.Background()
-	defer Setup(ctx)(ctx)
+	assert.NoError(t, Init(ctx))
 	tracer := otel.Tracer("test_noop")
 
 	_, span := tracer.Start(ctx, "test span")
@@ -37,6 +38,7 @@ func TestNoopDefault(t *testing.T) {
 	assert.False(t, span.SpanContext().HasTraceID())
 	assert.False(t, span.SpanContext().HasSpanID())
 	assert.False(t, called)
+	graceful.GetManager().DoGracefulShutdown()
 }
 
 func TestOtelIntegration(t *testing.T) {
@@ -61,7 +63,7 @@ func TestOtelIntegration(t *testing.T) {
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, traceEndpoint)()
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Insecure, true)()
 	ctx := context.Background()
-	defer Setup(ctx)(ctx)
+	assert.NoError(t, Init(ctx))
 
 	tracer := otel.Tracer("test_jaeger")
 	_, span := tracer.Start(ctx, "test span")
@@ -76,6 +78,7 @@ func TestOtelIntegration(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("no grpc call within 10s")
 	}
+	graceful.GetManager().DoGracefulShutdown()
 }
 
 func TestExporter(t *testing.T) {
@@ -91,12 +94,12 @@ func TestExporter(t *testing.T) {
 	defer test.MockVariableValue(&setting.OpenTelemetry.Traces.Endpoint, endpoint)()
 
 	ctx := context.Background()
-	defer Setup(ctx)(ctx)
-	assert.NoError(t, err)
+	assert.NoError(t, Init(ctx))
 	tracer := otel.Tracer("test_grpc")
 
 	_, span := tracer.Start(ctx, "test span")
 
 	assert.True(t, span.SpanContext().HasTraceID())
 	assert.True(t, span.SpanContext().HasSpanID())
+	graceful.GetManager().DoGracefulShutdown()
 }

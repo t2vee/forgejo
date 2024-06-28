@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"code.gitea.io/gitea/modules/graceful"
 	"code.gitea.io/gitea/modules/log"
 
 	"github.com/go-logr/logr/funcr"
@@ -17,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 )
 
-func Setup(ctx context.Context) (shutdown func(context.Context)) {
+func Init(ctx context.Context) error {
 	// Redirect otel logger to write to common forgejo log at info
 	logWrap := funcr.New(func(prefix, args string) {
 		log.Info(fmt.Sprint(prefix, args))
@@ -27,12 +28,11 @@ func Setup(ctx context.Context) (shutdown func(context.Context)) {
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(cause error) {
 		log.Error("internal opentelemetry error was raised: %s", cause)
 	}))
-
 	var shutdownFuncs []func(context.Context) error
-
-	shutdown = func(ctx context.Context) {
+	shutdownCtx := context.Background()
+	shutdown := func() {
 		for _, fn := range shutdownFuncs {
-			if err := fn(ctx); err != nil {
+			if err := fn(shutdownCtx); err != nil {
 				log.Warn("exporter shutdown failed, err=%s", err)
 			}
 		}
@@ -43,7 +43,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context)) {
 
 	res, err := newResource(ctx)
 	if err != nil {
-		return shutdown
+		return err
 	}
 
 	traceShutdown, err := setupTraceProvider(ctx, res)
@@ -52,8 +52,8 @@ func Setup(ctx context.Context) (shutdown func(context.Context)) {
 	} else {
 		shutdownFuncs = append(shutdownFuncs, traceShutdown)
 	}
-
-	return shutdown
+	graceful.GetManager().RunAtShutdown(shutdownCtx, shutdown)
+	return nil
 }
 
 func newPropagator() propagation.TextMapPropagator {

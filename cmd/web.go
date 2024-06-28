@@ -18,7 +18,6 @@ import (
 	"code.gitea.io/gitea/modules/container"
 	"code.gitea.io/gitea/modules/graceful"
 	"code.gitea.io/gitea/modules/log"
-	"code.gitea.io/gitea/modules/opentelemetry"
 	"code.gitea.io/gitea/modules/process"
 	"code.gitea.io/gitea/modules/public"
 	"code.gitea.io/gitea/modules/setting"
@@ -155,7 +154,6 @@ func serveInstalled(ctx *cli.Context) error {
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
 	setting.MustInstalled()
-	defer opentelemetry.Setup(context.Background())(context.Background())
 
 	showWebStartupMessage("Prepare to run web server")
 
