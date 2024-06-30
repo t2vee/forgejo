@@ -19,12 +19,13 @@ type (
 	GroupList []*Group
 	Group     struct {
 		// Name of the quota group
-		Name  string `json:"name" xorm:"index UNIQUE NOT NULL" binding:"Required"`
+		Name  string `json:"name" xorm:"pk NOT NULL" binding:"Required"`
 		Rules []Rule `json:"rules" xorm:"-"`
 	}
 )
 
 type GroupRuleMapping struct {
+	ID        int64  `xorm:"pk autoincr" json:"-"`
 	GroupName string `xorm:"index unique(quota_group_rule_mapping) not null" json:"group_name"`
 	RuleName  string `xorm:"unique(quota_group_rule_mapping) not null" json:"rule_name"`
 }
@@ -36,9 +37,10 @@ const (
 )
 
 type GroupMapping struct {
-	Kind      Kind
-	MappedID  int64
-	GroupName string
+	ID        int64  `xorm:"pk autoincr"`
+	Kind      Kind   `xorm:"unique(quota_group_mapping) not null"`
+	MappedID  int64  `xorm:"unique(quota_group_mapping) not null"`
+	GroupName string `xorm:"index unique(quota_group_mapping) not null"`
 }
 
 func (g *Group) TableName() string {

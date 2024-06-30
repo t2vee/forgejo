@@ -13,7 +13,7 @@ import (
 )
 
 type Rule struct {
-	Name     string         `xorm:"unique index not null" json:"name"`
+	Name     string         `xorm:"pk not null" json:"name"`
 	Limit    int64          `xorm:"NOT NULL" binding:"Required" json:"limit"`
 	Subjects []LimitSubject `json:"subjects,omitempty"`
 }
