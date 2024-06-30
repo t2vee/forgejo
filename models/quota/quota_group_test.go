@@ -84,8 +84,8 @@ func TestQuotaGroupRuleCombination(t *testing.T) {
 
 	// size:all is covered, and is failing (due to packages:all being over quota)
 	ok, has = group.Evaluate(used, quota_model.LimitSubjectSizeAll)
-	assert.True(t, has)
-	assert.False(t, ok)
+	assert.True(t, has, "size:all should be covered")
+	assert.False(t, ok, "size:all should fail")
 }
 
 func TestQuotaGroupListsRequireOnlyOnePassing(t *testing.T) {

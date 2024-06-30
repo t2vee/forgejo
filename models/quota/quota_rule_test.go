@@ -82,19 +82,13 @@ func setUsed(used quota_model.Used, subject quota_model.LimitSubject, value int6
 }
 
 func assertEvaluation(t *testing.T, rule quota_model.Rule, used quota_model.Used, subject quota_model.LimitSubject, expected bool) {
+	t.Helper()
+
 	t.Run(subject.String(), func(t *testing.T) {
 		ok, has := rule.Evaluate(used, subject)
 		assert.True(t, has)
 		assert.Equal(t, expected, ok)
 	})
-}
-
-func assertAll(t *testing.T, rule quota_model.Rule, used quota_model.Used, expected bool) {
-	t.Helper()
-
-	for subject := quota_model.LimitSubjectFirst; subject <= quota_model.LimitSubjectLast; subject++ {
-		assertEvaluation(t, rule, used, subject, expected)
-	}
 }
 
 func TestQuotaRuleNoEvaluation(t *testing.T) {
@@ -110,8 +104,8 @@ func TestQuotaRuleNoEvaluation(t *testing.T) {
 	_, has := rule.Evaluate(used, quota_model.LimitSubjectSizeReposAll)
 
 	// We have a rule for "size:assets:attachments:all", and query for
-	// "size:repos:all". We don't cove that subject, neither directly, not
-	// indirectly, so the evaluation returns with no rules found.
+	// "size:repos:all". We don't cover that subject, so the evaluation returns
+	// with no rules found.
 	assert.False(t, has)
 }
 
@@ -207,12 +201,8 @@ func TestQuotaRuleCombined(t *testing.T) {
 	}
 
 	expectationMap := map[quota_model.LimitSubject]bool{
-		quota_model.LimitSubjectSizeAll:                       false,
-		quota_model.LimitSubjectSizeGitAll:                    true,
-		quota_model.LimitSubjectSizeGitLFS:                    true,
-		quota_model.LimitSubjectSizeAssetsAll:                 false,
-		quota_model.LimitSubjectSizeAssetsAttachmentsAll:      true,
-		quota_model.LimitSubjectSizeAssetsAttachmentsReleases: true,
+		quota_model.LimitSubjectSizeGitLFS:                    false,
+		quota_model.LimitSubjectSizeAssetsAttachmentsReleases: false,
 		quota_model.LimitSubjectSizeAssetsPackagesAll:         false,
 	}
 
@@ -233,22 +223,24 @@ func TestQuotaRuleSizeAll(t *testing.T) {
 	runTests := func(t *testing.T, rule quota_model.Rule, expected bool) {
 		t.Helper()
 
+		subject := quota_model.LimitSubjectSizeAll
+
 		t.Run("used:0", func(t *testing.T) {
 			used := quota_model.Used{}
 
-			assertAll(t, rule, used, true)
+			assertEvaluation(t, rule, used, subject, true)
 		})
 
 		t.Run("used:some-each", func(t *testing.T) {
 			used := makeFullyUsed()
 
-			assertAll(t, rule, used, expected)
+			assertEvaluation(t, rule, used, subject, expected)
 		})
 
 		t.Run("used:some", func(t *testing.T) {
 			used := makePartiallyUsed()
 
-			assertAll(t, rule, used, expected)
+			assertEvaluation(t, rule, used, subject, expected)
 		})
 	}
 
@@ -296,7 +288,7 @@ func TestQuotaRuleSizeAll(t *testing.T) {
 				},
 			}
 
-			assertAll(t, rule, used, false)
+			assertEvaluation(t, rule, used, quota_model.LimitSubjectSizeAll, false)
 		})
 	})
 

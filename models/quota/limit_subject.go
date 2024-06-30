@@ -5,7 +5,10 @@
 
 package quota
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 type (
 	LimitSubject  int
@@ -45,7 +48,7 @@ var limitSubjectRepr = map[string]LimitSubject{
 	"size:assets:attachments:issues":   LimitSubjectSizeAssetsAttachmentsIssues,
 	"size:assets:attachments:releases": LimitSubjectSizeAssetsAttachmentsReleases,
 	"size:assets:artifacts":            LimitSubjectSizeAssetsArtifacts,
-	"size:assets:packagesall":          LimitSubjectSizeAssetsPackagesAll,
+	"size:assets:packages:all":         LimitSubjectSizeAssetsPackagesAll,
 	"size:assets:wiki":                 LimitSubjectSizeWiki,
 }
 
@@ -56,6 +59,17 @@ func (subject LimitSubject) String() string {
 		}
 	}
 	return "<unknown>"
+}
+
+func (subject LimitSubject) MarshalJSON() ([]byte, error) {
+	buffer := bytes.NewBufferString(`"`)
+	buffer.WriteString(subject.String())
+	buffer.WriteString(`"`)
+	return buffer.Bytes(), nil
+}
+
+func (subjects LimitSubjects) GoString() string {
+	return fmt.Sprintf("%T{%+v}", subjects, subjects)
 }
 
 func ParseLimitSubject(repr string) (LimitSubject, error) {

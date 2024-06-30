@@ -97,6 +97,27 @@ func (g *Group) RemoveRuleByName(ctx context.Context, ruleName string) error {
 	return err
 }
 
+var affectsMap = map[LimitSubject]LimitSubjects{
+	LimitSubjectSizeAll: {
+		LimitSubjectSizeReposAll,
+		LimitSubjectSizeGitLFS,
+		LimitSubjectSizeAssetsAll,
+	},
+	LimitSubjectSizeReposAll: {
+		LimitSubjectSizeReposPublic,
+		LimitSubjectSizeReposPrivate,
+	},
+	LimitSubjectSizeAssetsAll: {
+		LimitSubjectSizeAssetsAttachmentsAll,
+		LimitSubjectSizeAssetsArtifacts,
+		LimitSubjectSizeAssetsPackagesAll,
+	},
+	LimitSubjectSizeAssetsAttachmentsAll: {
+		LimitSubjectSizeAssetsAttachmentsIssues,
+		LimitSubjectSizeAssetsAttachmentsReleases,
+	},
+}
+
 func (g *Group) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 	var found bool
 	for _, rule := range g.Rules {
@@ -108,6 +129,22 @@ func (g *Group) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 			}
 		}
 	}
+
+	if !found {
+		// If Evaluation for forSubject did not succeed, try evaluating against
+		// subjects below
+
+		for _, subject := range affectsMap[forSubject] {
+			ok, has := g.Evaluate(used, subject)
+			if has {
+				found = true
+				if !ok {
+					return false, true
+				}
+			}
+		}
+	}
+
 	return true, found
 }
 

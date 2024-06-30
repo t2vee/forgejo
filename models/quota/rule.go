@@ -13,88 +13,13 @@ import (
 )
 
 type Rule struct {
-	Name     string         `xorm:"pk not null" json:"name"`
-	Limit    int64          `xorm:"NOT NULL" binding:"Required" json:"limit"`
-	Subjects []LimitSubject `json:"subjects,omitempty"`
+	Name     string        `xorm:"pk not null" json:"name,omitempty"`
+	Limit    int64         `xorm:"NOT NULL" binding:"Required" json:"limit"`
+	Subjects LimitSubjects `json:"subjects,omitempty"`
 }
 
 func (r *Rule) TableName() string {
 	return "quota_rule"
-}
-
-var indirectMap = map[LimitSubject]LimitSubjects{
-	LimitSubjectSizeAll: {
-		LimitSubjectSizeReposAll,
-		LimitSubjectSizeReposPublic,
-		LimitSubjectSizeReposPrivate,
-		LimitSubjectSizeGitAll,
-		LimitSubjectSizeGitLFS,
-		LimitSubjectSizeAssetsAll,
-		LimitSubjectSizeAssetsAttachmentsAll,
-		LimitSubjectSizeAssetsAttachmentsIssues,
-		LimitSubjectSizeAssetsArtifacts,
-		LimitSubjectSizeAssetsPackagesAll,
-		LimitSubjectSizeWiki,
-	},
-	LimitSubjectSizeReposAll: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeReposPublic,
-		LimitSubjectSizeReposPrivate,
-	},
-	LimitSubjectSizeReposPublic: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeReposAll,
-	},
-	LimitSubjectSizeReposPrivate: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeReposAll,
-	},
-	LimitSubjectSizeGitAll: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeReposAll,
-		LimitSubjectSizeReposPublic,
-		LimitSubjectSizeReposPrivate,
-		LimitSubjectSizeGitLFS,
-	},
-	LimitSubjectSizeGitLFS: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeGitAll,
-	},
-	LimitSubjectSizeAssetsAll: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeAssetsAttachmentsAll,
-		LimitSubjectSizeAssetsAttachmentsIssues,
-		LimitSubjectSizeAssetsAttachmentsReleases,
-		LimitSubjectSizeAssetsArtifacts,
-		LimitSubjectSizeAssetsPackagesAll,
-	},
-	LimitSubjectSizeAssetsAttachmentsAll: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeAssetsAll,
-		LimitSubjectSizeAssetsAttachmentsIssues,
-		LimitSubjectSizeAssetsAttachmentsReleases,
-	},
-	LimitSubjectSizeAssetsAttachmentsIssues: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeAssetsAll,
-		LimitSubjectSizeAssetsAttachmentsAll,
-	},
-	LimitSubjectSizeAssetsAttachmentsReleases: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeAssetsAll,
-		LimitSubjectSizeAssetsAttachmentsAll,
-	},
-	LimitSubjectSizeAssetsArtifacts: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeAssetsAll,
-	},
-	LimitSubjectSizeAssetsPackagesAll: {
-		LimitSubjectSizeAll,
-		LimitSubjectSizeAssetsAll,
-	},
-	LimitSubjectSizeWiki: {
-		LimitSubjectSizeAll,
-	},
 }
 
 func (r Rule) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
@@ -103,28 +28,16 @@ func (r Rule) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 		return true, true
 	}
 
-	// If evaluating against a subject the rule directly covers, return that
-	if slices.Contains(r.Subjects, forSubject) {
-		return used.CalculateFor(forSubject) <= r.Limit, true
+	// If the rule does not cover forSubject, bail out early
+	if !slices.Contains(r.Subjects, forSubject) {
+		return false, false
 	}
 
-	// If evaluating against a subject the rule does not directly cover, check
-	// if we have any rule that covers it indirectly.
-	result := true
-	var found bool
-	for _, subject := range indirectMap[forSubject] {
-		if !slices.Contains(r.Subjects, subject) {
-			continue
-		}
-
-		ok, has := r.Evaluate(used, subject)
-		if !has {
-			continue
-		}
-		found = true
-		result = result && ok
+	var sum int64
+	for _, subject := range r.Subjects {
+		sum += used.CalculateFor(subject)
 	}
-	return result, found
+	return sum <= r.Limit, true
 }
 
 func (r *Rule) Edit(ctx context.Context, limit *int64, subjects *LimitSubjects) error {
