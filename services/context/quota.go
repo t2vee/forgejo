@@ -7,17 +7,17 @@ import (
 	"net/http"
 	"strings"
 
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/base"
-	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 // QuotaGroupAssignmentAPI returns a middleware to handle context-quota-group assignment for api routes
 func QuotaGroupAssignmentAPI() func(ctx *APIContext) {
 	return func(ctx *APIContext) {
 		groupName := ctx.Params("quotagroup")
-		group, err := quota_service.GetQuotaGroupByName(ctx, groupName)
+		group, err := quota_model.GetGroupByName(ctx, groupName)
 		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "GetQuotaGroupByName", err)
+			ctx.Error(http.StatusInternalServerError, "quota_model.GetGroupByName", err)
 			return
 		}
 		if group == nil {
@@ -25,6 +25,22 @@ func QuotaGroupAssignmentAPI() func(ctx *APIContext) {
 			return
 		}
 		ctx.QuotaGroup = group
+	}
+}
+
+func QuotaRuleAssignmentAPI() func(ctx *APIContext) {
+	return func(ctx *APIContext) {
+		ruleName := ctx.Params("quotarule")
+		rule, err := quota_model.GetRuleByName(ctx, ruleName)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "quota_model.GetRuleByName", err)
+			return
+		}
+		if rule == nil {
+			ctx.NotFound()
+			return
+		}
+		ctx.QuotaRule = rule
 	}
 }
 
@@ -46,11 +62,11 @@ func (ctx *Context) QuotaExceeded() {
 	ctx.HTML(http.StatusRequestEntityTooLarge, base.TplName("status/413"))
 }
 
-func EnforceQuotaWeb(category quota_service.QuotaLimitCategory) func(ctx *Context) {
+func EnforceQuotaWeb(subject quota_model.LimitSubject) func(ctx *Context) {
 	return func(ctx *Context) {
-		ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.Doer.ID, category)
+		ok, err := quota_model.EvaluateForUser(ctx, ctx.Doer.ID, subject)
 		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "IsWithinQuotaLimit")
+			ctx.Error(http.StatusInternalServerError, "quota_model.EvaluateForUser")
 			return
 		}
 		if !ok {
@@ -71,9 +87,9 @@ func (ctx *APIContext) QuotaExceeded() {
 	})
 }
 
-func EnforceQuotaAPI(category quota_service.QuotaLimitCategory) func(ctx *APIContext) {
+func EnforceQuotaAPI(subject quota_model.LimitSubject) func(ctx *APIContext) {
 	return func(ctx *APIContext) {
-		ok, err := quota_service.IsWithinQuotaLimit(ctx, ctx.Doer.ID, category)
+		ok, err := quota_model.EvaluateForUser(ctx, ctx.Doer.ID, subject)
 		if err != nil {
 			ctx.InternalServerError(err)
 			return

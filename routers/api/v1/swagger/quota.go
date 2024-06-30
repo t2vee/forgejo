@@ -4,16 +4,35 @@
 package swagger
 
 import (
-	quota_model "code.gitea.io/gitea/models/quota"
 	api "code.gitea.io/gitea/modules/structs"
-	quota_service "code.gitea.io/gitea/services/quota"
 )
 
-// UserQuota
-// swagger:response UserQuota
-type swaggerResponseUserQuota struct {
+// QuotaInfo
+// swagger:response QuotaInfo
+type swaggerResponseQuotaInfo struct {
 	// in:body
-	Body quota_service.UserQuota `json:"body"`
+	Body api.QuotaInfo `json:"body"`
+}
+
+// QuotaInfoAdmin
+// swagger:response QuotaInfoAdmin
+type swaggerResponseQuotaInfoAdmin struct {
+	// in:body
+	Body api.QuotaInfoAdmin `json:"body"`
+}
+
+// QuotaRuleInfoList
+// swagger:response QuotaRuleInfoList
+type swaggerResponseQuotaRuleInfoList struct {
+	// in:body
+	Body []api.QuotaRuleInfo `json:"body"`
+}
+
+// QuotaRuleInfo
+// swagger:response QuotaRuleInfo
+type swaggerResponseQuotaRuleInfo struct {
+	// in:body
+	Body api.QuotaRuleInfo `json:"body"`
 }
 
 // QuotaUsedAttachmentList
@@ -41,19 +60,12 @@ type swaggerQuotaUsedArtifactList struct {
 // swagger:response QuotaGroup
 type swaggerResponseQuotaGroup struct {
 	// in:body
-	Body quota_model.QuotaGroup `json:"body"`
+	Body api.QuotaGroup `json:"body"`
 }
 
 // QuotaGroupList
 // swagger:response QuotaGroupList
 type swaggerResponseQuotaGroupList struct {
 	// in:body
-	Body quota_model.QuotaGroupList `json:"body"`
-}
-
-// QuotaGroupAddOrRemoveUserOption
-// swagger:response QuotaGroupAddOrRemoveUserOption
-type swaggerDefinitionQuotaGroupAddOrRemoveUserOption struct {
-	// in:body
-	Body api.QuotaGroupAddOrRemoveUserOption `json:"body"`
+	Body api.QuotaGroupList `json:"body"`
 }

@@ -100,7 +100,6 @@ import (
 	"code.gitea.io/gitea/services/auth"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/forms"
-	quota_service "code.gitea.io/gitea/services/quota"
 
 	_ "code.gitea.io/gitea/routers/api/v1/swagger" // for swagger generation
 
@@ -897,6 +896,7 @@ func Routes() *web.Route {
 			if setting.Quota.Enabled {
 				m.Group("/quota", func() {
 					m.Get("", user.GetQuota)
+					m.Get("/check", user.CheckQuota)
 					m.Get("/attachments", user.ListQuotaAttachments)
 					m.Get("/packages", user.ListQuotaPackages)
 					m.Get("/artifacts", user.ListQuotaArtifacts)
@@ -1028,7 +1028,7 @@ func Routes() *web.Route {
 			m.Get("/search", repo.Search)
 
 			// (repo scope)
-			m.Post("/migrate", reqToken(), bind(api.MigrateRepoOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.Migrate)
+			m.Post("/migrate", reqToken(), bind(api.MigrateRepoOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.Migrate)
 
 			m.Group("/{username}/{reponame}", func() {
 				m.Get("/compare/*", reqRepoReader(unit.TypeCode), repo.CompareDiff)
@@ -1036,12 +1036,12 @@ func Routes() *web.Route {
 				m.Combo("").Get(reqAnyRepoReader(), repo.Get).
 					Delete(reqToken(), reqOwner(), repo.Delete).
 					Patch(reqToken(), reqAdmin(), bind(api.EditRepoOption{}), repo.Edit)
-				m.Post("/generate", reqToken(), reqRepoReader(unit.TypeCode), bind(api.GenerateRepoOption{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.Generate)
+				m.Post("/generate", reqToken(), reqRepoReader(unit.TypeCode), bind(api.GenerateRepoOption{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.Generate)
 				m.Group("/transfer", func() {
 					m.Post("", reqOwner(), bind(api.TransferRepoOption{}), repo.Transfer)
 					m.Post("/accept", repo.AcceptTransfer)
 					m.Post("/reject", repo.RejectTransfer)
-				}, reqToken(), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal))
+				}, reqToken(), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll))
 				addActionsRoutes(
 					m,
 					reqOwner(),
@@ -1099,13 +1099,13 @@ func Routes() *web.Route {
 				m.Get("/archive/*", reqRepoReader(unit.TypeCode), repo.GetArchive)
 				if !setting.Repository.DisableForks {
 					m.Combo("/forks").Get(repo.ListForks).
-						Post(reqToken(), reqRepoReader(unit.TypeCode), bind(api.CreateForkOption{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.CreateFork)
+						Post(reqToken(), reqRepoReader(unit.TypeCode), bind(api.CreateForkOption{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.CreateFork)
 				}
 				m.Group("/branches", func() {
 					m.Get("", repo.ListBranches)
 					m.Get("/*", repo.GetBranch)
 					m.Delete("/*", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, repo.DeleteBranch)
-					m.Post("", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, bind(api.CreateBranchRepoOption{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.CreateBranch)
+					m.Post("", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, bind(api.CreateBranchRepoOption{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.CreateBranch)
 				}, context.ReferencesGitRepo(), reqRepoReader(unit.TypeCode))
 				m.Group("/branch_protections", func() {
 					m.Get("", repo.ListBranchProtections)
@@ -1119,7 +1119,7 @@ func Routes() *web.Route {
 				m.Group("/tags", func() {
 					m.Get("", repo.ListTags)
 					m.Get("/*", repo.GetTag)
-					m.Post("", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, bind(api.CreateTagOption{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitCode), repo.CreateTag)
+					m.Post("", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, bind(api.CreateTagOption{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeReposAll), repo.CreateTag)
 					m.Delete("/*", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, repo.DeleteTag)
 				}, reqRepoReader(unit.TypeCode), context.ReferencesGitRepo(true))
 				m.Group("/tag_protections", func() {
@@ -1153,10 +1153,10 @@ func Routes() *web.Route {
 				m.Group("/wiki", func() {
 					m.Combo("/page/{pageName}").
 						Get(repo.GetWikiPage).
-						Patch(mustNotBeArchived, reqToken(), reqRepoWriter(unit.TypeWiki), bind(api.CreateWikiPageOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryWiki), repo.EditWikiPage).
+						Patch(mustNotBeArchived, reqToken(), reqRepoWriter(unit.TypeWiki), bind(api.CreateWikiPageOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeWiki), repo.EditWikiPage).
 						Delete(mustNotBeArchived, reqToken(), reqRepoWriter(unit.TypeWiki), repo.DeleteWikiPage)
 					m.Get("/revisions/{pageName}", repo.ListPageRevisions)
-					m.Post("/new", reqToken(), mustNotBeArchived, reqRepoWriter(unit.TypeWiki), bind(api.CreateWikiPageOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryWiki), repo.NewWikiPage)
+					m.Post("/new", reqToken(), mustNotBeArchived, reqRepoWriter(unit.TypeWiki), bind(api.CreateWikiPageOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeWiki), repo.NewWikiPage)
 					m.Get("/pages", repo.ListWikiPages)
 				}, mustEnableWiki)
 				m.Post("/markup", reqToken(), bind(api.MarkupOption{}), misc.Markup)
@@ -1181,9 +1181,9 @@ func Routes() *web.Route {
 							Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteRelease)
 						m.Group("/assets", func() {
 							m.Combo("").Get(repo.ListReleaseAttachments).
-								Post(reqToken(), reqRepoWriter(unit.TypeReleases), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsReleases), repo.CreateReleaseAttachment)
+								Post(reqToken(), reqRepoWriter(unit.TypeReleases), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsReleases), repo.CreateReleaseAttachment)
 							m.Combo("/{attachment_id}").Get(repo.GetReleaseAttachment).
-								Patch(reqToken(), reqRepoWriter(unit.TypeReleases), bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsReleases), repo.EditReleaseAttachment).
+								Patch(reqToken(), reqRepoWriter(unit.TypeReleases), bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsReleases), repo.EditReleaseAttachment).
 								Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteReleaseAttachment)
 						})
 					})
@@ -1193,11 +1193,11 @@ func Routes() *web.Route {
 							Delete(reqToken(), reqRepoWriter(unit.TypeReleases), repo.DeleteReleaseByTag)
 					})
 				}, reqRepoReader(unit.TypeReleases))
-				m.Post("/mirror-sync", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.MirrorSync)
-				m.Post("/push_mirrors-sync", reqAdmin(), reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.PushMirrorSync)
+				m.Post("/mirror-sync", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.MirrorSync)
+				m.Post("/push_mirrors-sync", reqAdmin(), reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.PushMirrorSync)
 				m.Group("/push_mirrors", func() {
 					m.Combo("").Get(repo.ListPushMirrors).
-						Post(mustNotBeArchived, bind(api.CreatePushMirrorOption{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.AddPushMirror)
+						Post(mustNotBeArchived, bind(api.CreatePushMirrorOption{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.AddPushMirror)
 					m.Combo("/{name}").
 						Delete(mustNotBeArchived, repo.DeletePushMirrorByRemoteName).
 						Get(repo.GetPushMirrorByName)
@@ -1212,11 +1212,11 @@ func Routes() *web.Route {
 						m.Combo("").Get(repo.GetPullRequest).
 							Patch(reqToken(), bind(api.EditPullRequestOption{}), repo.EditPullRequest)
 						m.Get(".{diffType:diff|patch}", repo.DownloadPullDiffOrPatch)
-						m.Post("/update", reqToken(), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.UpdatePullRequest)
+						m.Post("/update", reqToken(), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.UpdatePullRequest)
 						m.Get("/commits", repo.GetPullRequestCommits)
 						m.Get("/files", repo.GetPullRequestFiles)
 						m.Combo("/merge").Get(repo.IsPullRequestMerged).
-							Post(reqToken(), mustNotBeArchived, bind(forms.MergePullRequestForm{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitTotal), repo.MergePullRequest).
+							Post(reqToken(), mustNotBeArchived, bind(forms.MergePullRequestForm{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll), repo.MergePullRequest).
 							Delete(reqToken(), mustNotBeArchived, repo.CancelScheduledAutoMerge)
 						m.Group("/reviews", func() {
 							m.Combo("").
@@ -1271,14 +1271,14 @@ func Routes() *web.Route {
 					m.Get("/tags/{sha}", repo.GetAnnotatedTag)
 					m.Get("/notes/{sha}", repo.GetNote)
 				}, context.ReferencesGitRepo(true), reqRepoReader(unit.TypeCode))
-				m.Post("/diffpatch", reqRepoWriter(unit.TypeCode), reqToken(), bind(api.ApplyDiffPatchFileOptions{}), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitCode), repo.ApplyDiffPatch)
+				m.Post("/diffpatch", reqRepoWriter(unit.TypeCode), reqToken(), bind(api.ApplyDiffPatchFileOptions{}), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeReposAll), repo.ApplyDiffPatch)
 				m.Group("/contents", func() {
 					m.Get("", repo.GetContentsList)
-					m.Post("", reqToken(), bind(api.ChangeFilesOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitCode), repo.ChangeFiles)
+					m.Post("", reqToken(), bind(api.ChangeFilesOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeReposAll), repo.ChangeFiles)
 					m.Get("/*", repo.GetContents)
 					m.Group("/*", func() {
-						m.Post("", bind(api.CreateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitCode), repo.CreateFile)
-						m.Put("", bind(api.UpdateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryGitCode), repo.UpdateFile)
+						m.Post("", bind(api.CreateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeReposAll), repo.CreateFile)
+						m.Put("", bind(api.UpdateFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeReposAll), repo.UpdateFile)
 						m.Delete("", bind(api.DeleteFileOptions{}), reqRepoBranchWriter, mustNotBeArchived, repo.DeleteFile)
 					}, reqToken())
 				}, reqRepoReader(unit.TypeCode))
@@ -1336,10 +1336,10 @@ func Routes() *web.Route {
 							m.Group("/assets", func() {
 								m.Combo("").
 									Get(repo.ListIssueCommentAttachments).
-									Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.CreateIssueCommentAttachment)
+									Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.CreateIssueCommentAttachment)
 								m.Combo("/{attachment_id}").
 									Get(repo.GetIssueCommentAttachment).
-									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.EditIssueCommentAttachment).
+									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.EditIssueCommentAttachment).
 									Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueCommentAttachment)
 							}, mustEnableAttachments)
 						}, commentAssignment(":id"))
@@ -1388,10 +1388,10 @@ func Routes() *web.Route {
 						m.Group("/assets", func() {
 							m.Combo("").
 								Get(repo.ListIssueAttachments).
-								Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.CreateIssueAttachment)
+								Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.CreateIssueAttachment)
 							m.Combo("/{attachment_id}").
 								Get(repo.GetIssueAttachment).
-								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.EditIssueAttachment).
+								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.EditIssueAttachment).
 								Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueAttachment)
 						}, mustEnableAttachments)
 						m.Combo("/dependencies").
@@ -1567,15 +1567,29 @@ func Routes() *web.Route {
 			})
 			if setting.Quota.Enabled {
 				m.Group("/quota", func() {
+					m.Group("/rules", func() {
+						m.Combo("").Get(admin.ListQuotaRules).
+							Post(bind(api.CreateQuotaRuleOptions{}), admin.CreateQuotaRule)
+						m.Combo("/{quotarule}", context.QuotaRuleAssignmentAPI()).
+							Get(admin.GetQuotaRule).
+							Patch(bind(api.EditQuotaRuleOptions{}), admin.EditQuotaRule).
+							Delete(admin.DeleteQuotaRule)
+					})
 					m.Group("/groups", func() {
 						m.Combo("").Get(admin.ListQuotaGroups).
-							Post(bind(quota_model.QuotaGroup{}), admin.CreateQuotaGroup)
+							Post(bind(api.CreateQuotaGroupOptions{}), admin.CreateQuotaGroup)
 						m.Group("/{quotagroup}", func() {
 							m.Combo("").Get(admin.GetQuotaGroup).
 								Delete(admin.DeleteQuotaGroup)
-							m.Combo("/users").Get(admin.ListUsersInQuotaGroup).
-								Post(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.AddUserToQuotaGroup).
-								Delete(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.RemoveUserFromQuotaGroup)
+							m.Group("/rules", func() {
+								m.Post("", bind(api.AddRuleToQuotaGroupOptions{}), admin.AddRuleToQuotaGroup)
+								m.Delete("/{quotarule}", context.QuotaRuleAssignmentAPI(), admin.RemoveRuleFromQuotaGroup)
+							})
+							m.Group("/users", func() {
+								m.Combo("").Get(admin.ListUsersInQuotaGroup).
+									Post(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.AddUserToQuotaGroup)
+								m.Delete("/{username}", admin.RemoveUserFromQuotaGroup)
+							})
 						}, context.QuotaGroupAssignmentAPI())
 					})
 				})

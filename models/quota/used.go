@@ -14,72 +14,91 @@ import (
 	repo_model "code.gitea.io/gitea/models/repo"
 )
 
-// QuotaUsed represents the quota used by a user
-// swagger:model
-type QuotaUsed struct { //revive:disable-line:exported
-	// Git storage used by the user
-	Git struct {
-		// Git storage used by the user
-		Code int64 `json:"code"`
-		// Git LFS storage used by the user
-		LFS int64 `json:"lfs"`
-	} `json:"git"`
-	// Space used by the user for various assets
-	Assets struct {
-		// Space used by the user's attachments
-		Attachments struct {
-			// Space used by the user's release attachments
-			Releases int64 `json:"releases"`
-			// Space used by the user's issue & comment attachments
-			Issues int64 `json:"issues"`
-		} `json:"attachments"`
-		// Space used by the user's artifacts
-		Artifacts int64 `json:"artifacts"`
-		// Space used by the user's packages
-		Packages int64 `json:"packages"`
-	} `json:"assets"`
+type Used struct {
+	Size UsedSize
 }
 
-func (u *QuotaUsed) TotalSize() int64 {
-	return u.GitSize() + u.AssetsSize()
+type UsedSize struct {
+	Repos  UsedSizeRepos
+	Git    UsedSizeGit
+	Assets UsedSizeAssets
 }
 
-func (u *QuotaUsed) GitSize() int64 {
-	return u.Git.Code + u.Git.LFS
+func (u UsedSize) All() int64 {
+	return u.Repos.All() + u.Git.All(u.Repos) + u.Assets.All()
 }
 
-func (u *QuotaUsed) AssetsSize() int64 {
-	return u.Assets.Attachments.Releases + u.Assets.Attachments.Issues + u.Assets.Packages + u.Assets.Artifacts
+type UsedSizeRepos struct {
+	Public  int64
+	Private int64
 }
 
-func (u *QuotaUsed) GetUsedForCategory(category QuotaLimitCategory) int64 {
-	switch category {
-	case QuotaLimitCategoryTotal:
-		return u.TotalSize()
-	case QuotaLimitCategoryGitTotal:
-		return u.GitSize()
-	case QuotaLimitCategoryGitCode:
-		return u.Git.Code
-	case QuotaLimitCategoryGitLFS:
-		return u.Git.LFS
+func (u UsedSizeRepos) All() int64 {
+	return u.Public + u.Private
+}
 
-	case QuotaLimitCategoryAssetTotal:
-		return u.AssetsSize()
-	case QuotaLimitCategoryAssetAttachmentsTotal:
-		return u.Assets.Attachments.Releases + u.Assets.Attachments.Issues
-	case QuotaLimitCategoryAssetAttachmentsReleases:
-		return u.Assets.Attachments.Releases
-	case QuotaLimitCategoryAssetAttachmentsIssues:
-		return u.Assets.Attachments.Issues
-	case QuotaLimitCategoryAssetArtifacts:
-		return u.Assets.Artifacts
-	case QuotaLimitCategoryAssetPackages:
-		return u.Assets.Packages
+type UsedSizeGit struct {
+	LFS int64
+}
 
-	case QuotaLimitCategoryWiki:
+func (u UsedSizeGit) All(r UsedSizeRepos) int64 {
+	return u.LFS + r.All()
+}
+
+type UsedSizeAssets struct {
+	Attachments UsedSizeAssetsAttachments
+	Artifacts   int64
+	Packages    UsedSizeAssetsPackages
+}
+
+func (u UsedSizeAssets) All() int64 {
+	return u.Attachments.All() + u.Artifacts + u.Packages.All
+}
+
+type UsedSizeAssetsAttachments struct {
+	Issues   int64
+	Releases int64
+}
+
+func (u UsedSizeAssetsAttachments) All() int64 {
+	return u.Issues + u.Releases
+}
+
+type UsedSizeAssetsPackages struct {
+	All int64
+}
+
+func (u Used) CalculateFor(subject LimitSubject) int64 {
+	switch subject {
+	case LimitSubjectNone:
+		return 0
+	case LimitSubjectSizeAll:
+		return u.Size.All()
+	case LimitSubjectSizeReposAll:
+		return u.Size.Repos.All()
+	case LimitSubjectSizeReposPublic:
+		return u.Size.Repos.Public
+	case LimitSubjectSizeReposPrivate:
+		return u.Size.Repos.Private
+	case LimitSubjectSizeGitAll:
+		return u.Size.Git.All(u.Size.Repos)
+	case LimitSubjectSizeGitLFS:
+		return u.Size.Git.LFS
+	case LimitSubjectSizeAssetsAll:
+		return u.Size.Assets.All()
+	case LimitSubjectSizeAssetsAttachmentsAll:
+		return u.Size.Assets.Attachments.All()
+	case LimitSubjectSizeAssetsAttachmentsIssues:
+		return u.Size.Assets.Attachments.Issues
+	case LimitSubjectSizeAssetsAttachmentsReleases:
+		return u.Size.Assets.Attachments.Releases
+	case LimitSubjectSizeAssetsArtifacts:
+		return u.Size.Assets.Artifacts
+	case LimitSubjectSizeAssetsPackagesAll:
+		return u.Size.Assets.Packages.All
+	case LimitSubjectSizeWiki:
 		return 0
 	}
-
 	return 0
 }
 
@@ -161,12 +180,28 @@ func GetQuotaArtifactsForUser(ctx context.Context, userID int64, opts db.ListOpt
 	return count, &artifacts, nil
 }
 
-func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) {
-	var used QuotaUsed
+func GetUsedForUser(ctx context.Context, userID int64) (*Used, error) {
+	var used Used
 
 	_, err := createQueryFor(ctx, userID, "repositories").
-		Select("SUM(git_size) AS code, SUM(lfs_size) AS lfs").
-		Get(&used.Git)
+		Where("`repository`.is_private = ?", true).
+		Select("SUM(git_size) AS code").
+		Get(&used.Size.Repos.Private)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = createQueryFor(ctx, userID, "repositories").
+		Where("`repository`.is_private = ?", false).
+		Select("SUM(git_size) AS code").
+		Get(&used.Size.Repos.Public)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = createQueryFor(ctx, userID, "repositories").
+		Select("SUM(lfs_size) AS lfs").
+		Get(&used.Size.Git.LFS)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +209,7 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 	_, err = createQueryFor(ctx, userID, "attachments").
 		Select("SUM(`attachment`.size) AS size").
 		Where("`attachment`.release_id != 0").
-		Get(&used.Assets.Attachments.Releases)
+		Get(&used.Size.Assets.Attachments.Releases)
 	if err != nil {
 		return nil, err
 	}
@@ -182,21 +217,21 @@ func GetQuotaUsedForUser(ctx context.Context, userID int64) (*QuotaUsed, error) 
 	_, err = createQueryFor(ctx, userID, "attachments").
 		Select("SUM(`attachment`.size) AS size").
 		Where("`attachment`.release_id = 0").
-		Get(&used.Assets.Attachments.Issues)
+		Get(&used.Size.Assets.Attachments.Issues)
 	if err != nil {
 		return nil, err
 	}
 
 	_, err = createQueryFor(ctx, userID, "artifacts").
 		Select("SUM(file_compressed_size) AS size").
-		Get(&used.Assets.Artifacts)
+		Get(&used.Size.Assets.Artifacts)
 	if err != nil {
 		return nil, err
 	}
 
 	_, err = createQueryFor(ctx, userID, "packages").
 		Select("SUM(package_blob.size) AS size").
-		Get(&used.Assets.Packages)
+		Get(&used.Size.Assets.Packages.All)
 	if err != nil {
 		return nil, err
 	}

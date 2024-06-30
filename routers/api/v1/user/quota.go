@@ -6,10 +6,10 @@ package user
 import (
 	"net/http"
 
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/routers/api/v1/utils"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/convert"
-	quota_service "code.gitea.io/gitea/services/quota"
 )
 
 // GetQuota returns the quota information for the authenticated user
@@ -21,26 +21,55 @@ func GetQuota(ctx *context.APIContext) {
 	// - application/json
 	// responses:
 	//   "200":
-	//     "$ref": "#/responses/UserQuota"
+	//     "$ref": "#/responses/QuotaInfo"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
 
-	used, err := quota_service.GetQuotaUsedForUser(ctx, ctx.Doer.ID)
+	used, err := quota_model.GetUsedForUser(ctx, ctx.Doer.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetQuotaUsedForUser", err)
+		ctx.Error(http.StatusInternalServerError, "quota_model.GetUsedForUser", err)
 		return
 	}
 
-	limits, err := quota_service.GetQuotaLimitsForUser(ctx, ctx.Doer.ID)
+	groups, err := quota_model.GetGroupsForUser(ctx, ctx.Doer.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "GetQuotaLimitsForUser", err)
+		ctx.Error(http.StatusInternalServerError, "quota_model.GetGroupsForUser", err)
 		return
 	}
 
-	result := quota_service.UserQuota{
-		Limits: *limits,
-		Used:   *used,
-	}
-
+	result := convert.ToQuotaInfo(used, groups)
 	ctx.JSON(http.StatusOK, &result)
+}
+
+// CheckQuota returns whether the authenticated user is over the subject quota
+func CheckQuota(ctx *context.APIContext) {
+	// swagger:operation GET /user/quota/check user userCheckQuota
+	// ---
+	// summary: Check if the authenticated user is over quota for a given subject
+	// produces:
+	// - application/json
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/boolean"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
+	subjectQuery := ctx.FormTrim("subject")
+
+	subject, err := quota_model.ParseLimitSubject(subjectQuery)
+	if err != nil {
+		ctx.Error(http.StatusUnprocessableEntity, "quota_model.ParseLimitSubject", err)
+		return
+	}
+
+	ok, err := quota_model.EvaluateForUser(ctx, ctx.Doer.ID, subject)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "quota_model.EvaluateForUser", err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, &ok)
 }
 
 // ListQuotaAttachments lists attachments affecting the authenticated user's quota
@@ -62,9 +91,11 @@ func ListQuotaAttachments(ctx *context.APIContext) {
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/QuotaUsedAttachmentList"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
 
 	opts := utils.GetListOptions(ctx)
-	count, attachments, err := quota_service.GetQuotaAttachmentsForUser(ctx, ctx.Doer.ID, opts)
+	count, attachments, err := quota_model.GetQuotaAttachmentsForUser(ctx, ctx.Doer.ID, opts)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaAttachmentsForUser", err)
 		return
@@ -99,9 +130,11 @@ func ListQuotaPackages(ctx *context.APIContext) {
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/QuotaUsedPackageList"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
 
 	opts := utils.GetListOptions(ctx)
-	count, packages, err := quota_service.GetQuotaPackagesForUser(ctx, ctx.Doer.ID, opts)
+	count, packages, err := quota_model.GetQuotaPackagesForUser(ctx, ctx.Doer.ID, opts)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaPackagesForUser", err)
 		return
@@ -136,9 +169,11 @@ func ListQuotaArtifacts(ctx *context.APIContext) {
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/QuotaUsedArtifactList"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
 
 	opts := utils.GetListOptions(ctx)
-	count, artifacts, err := quota_service.GetQuotaArtifactsForUser(ctx, ctx.Doer.ID, opts)
+	count, artifacts, err := quota_model.GetQuotaArtifactsForUser(ctx, ctx.Doer.ID, opts)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetQuotaArtifactsForUser", err)
 		return

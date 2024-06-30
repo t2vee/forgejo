@@ -11,6 +11,7 @@ import (
 	auth_model "code.gitea.io/gitea/models/auth"
 	"code.gitea.io/gitea/models/db"
 	"code.gitea.io/gitea/models/perm"
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/models/unit"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/metrics"
@@ -47,7 +48,6 @@ import (
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/forms"
 	"code.gitea.io/gitea/services/lfs"
-	quota_service "code.gitea.io/gitea/services/quota"
 
 	_ "code.gitea.io/gitea/modules/session" // to registers all internal adapters
 
@@ -942,12 +942,12 @@ func registerRoutes(m *web.Route) {
 
 	// ***** START: Repository *****
 	m.Group("/repo", func() {
-		m.Get("/create", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.Create)
-		m.Post("/create", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), web.Bind(forms.CreateRepoForm{}), repo.CreatePost)
-		m.Get("/migrate", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.Migrate)
-		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.MigratePost)
+		m.Get("/create", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.Create)
+		m.Post("/create", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), web.Bind(forms.CreateRepoForm{}), repo.CreatePost)
+		m.Get("/migrate", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.Migrate)
+		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.MigratePost)
 		if !setting.Repository.DisableForks {
-			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.ForkByID)
+			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.ForkByID)
 		}
 		m.Get("/search", repo.SearchRepo)
 	}, reqSignIn)
@@ -1140,7 +1140,7 @@ func registerRoutes(m *web.Route) {
 	m.Group("/{username}/{reponame}", func() {
 		if !setting.Repository.DisableForks {
 			m.Combo("/fork", reqRepoCodeReader).Get(repo.Fork).
-				Post(web.Bind(forms.CreateRepoForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitTotal), repo.ForkPost)
+				Post(web.Bind(forms.CreateRepoForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeGitAll), repo.ForkPost)
 		}
 		m.Group("/issues", func() {
 			m.Group("/new", func() {
@@ -1165,7 +1165,7 @@ func registerRoutes(m *web.Route) {
 					m.Post("/add", repo.AddDependency)
 					m.Post("/delete", repo.RemoveDependency)
 				})
-				m.Combo("/comments").Post(repo.MustAllowUserComment, web.Bind(forms.CreateCommentForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.NewComment)
+				m.Combo("/comments").Post(repo.MustAllowUserComment, web.Bind(forms.CreateCommentForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.NewComment)
 				m.Group("/times", func() {
 					m.Post("/add", web.Bind(forms.AddTimeManuallyForm{}), repo.AddTimeManually)
 					m.Post("/{timeid}/delete", repo.DeleteTime)
@@ -1196,7 +1196,7 @@ func registerRoutes(m *web.Route) {
 			m.Post("/status", reqRepoIssuesOrPullsWriter, repo.UpdateIssueStatus)
 			m.Post("/delete", reqRepoAdmin, repo.BatchDeleteIssues)
 			m.Post("/resolve_conversation", reqRepoIssuesOrPullsReader, repo.SetShowOutdatedComments, repo.UpdateResolveConversation)
-			m.Post("/attachments", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachmentsIssues), repo.UploadIssueAttachment)
+			m.Post("/attachments", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.UploadIssueAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 			m.Delete("/unpin/{index}", reqRepoAdmin, repo.IssueUnpin)
 			m.Post("/move_pin", reqRepoAdmin, repo.IssuePinMove)
@@ -1230,23 +1230,23 @@ func registerRoutes(m *web.Route) {
 
 		m.Group("", func() {
 			m.Group("", func() {
-				m.Combo("/_edit/*", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode)).Get(repo.EditFile).
+				m.Combo("/_edit/*", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll)).Get(repo.EditFile).
 					Post(web.Bind(forms.EditRepoFileForm{}), repo.EditFilePost)
-				m.Combo("/_new/*", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode)).Get(repo.NewFile).
+				m.Combo("/_new/*", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll)).Get(repo.NewFile).
 					Post(web.Bind(forms.EditRepoFileForm{}), repo.NewFilePost)
-				m.Post("/_preview/*", web.Bind(forms.EditPreviewDiffForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.DiffPreviewPost)
+				m.Post("/_preview/*", web.Bind(forms.EditPreviewDiffForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.DiffPreviewPost)
 				m.Combo("/_delete/*").Get(repo.DeleteFile).
 					Post(web.Bind(forms.DeleteRepoFileForm{}), repo.DeleteFilePost)
-				m.Combo("/_upload/*", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.MustBeAbleToUpload).
+				m.Combo("/_upload/*", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.MustBeAbleToUpload).
 					Get(repo.UploadFile).
 					Post(web.Bind(forms.UploadRepoFileForm{}), repo.UploadFilePost)
-				m.Combo("/_diffpatch/*", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode)).Get(repo.NewDiffPatch).
+				m.Combo("/_diffpatch/*", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll)).Get(repo.NewDiffPatch).
 					Post(web.Bind(forms.EditRepoFileForm{}), repo.NewDiffPatchPost)
-				m.Combo("/_cherrypick/{sha:([a-f0-9]{4,64})}/*", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode)).Get(repo.CherryPick).
+				m.Combo("/_cherrypick/{sha:([a-f0-9]{4,64})}/*", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll)).Get(repo.CherryPick).
 					Post(web.Bind(forms.CherryPickForm{}), repo.CherryPickPost)
 			}, repo.MustBeEditable, repo.CommonEditorData)
 			m.Group("", func() {
-				m.Post("/upload-file", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.UploadFileToServer)
+				m.Post("/upload-file", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.UploadFileToServer)
 				m.Post("/upload-remove", web.Bind(forms.RemoveUploadFileForm{}), repo.RemoveUploadFileFromServer)
 			}, repo.MustBeEditable, repo.MustBeAbleToUpload)
 		}, context.RepoRef(), canEnableEditor, context.RepoMustNotBeArchived())
@@ -1256,9 +1256,9 @@ func registerRoutes(m *web.Route) {
 				m.Post("/branch/*", context.RepoRefByType(context.RepoRefBranch), repo.CreateBranch)
 				m.Post("/tag/*", context.RepoRefByType(context.RepoRefTag), repo.CreateBranch)
 				m.Post("/commit/*", context.RepoRefByType(context.RepoRefCommit), repo.CreateBranch)
-			}, web.Bind(forms.NewBranchForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode))
+			}, web.Bind(forms.NewBranchForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll))
 			m.Post("/delete", repo.DeleteBranchPost)
-			m.Post("/restore", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitCode), repo.RestoreBranchPost)
+			m.Post("/restore", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.RestoreBranchPost)
 		}, context.RepoMustNotBeArchived(), reqRepoCodeWriter, repo.MustBeNotEmpty)
 	}, reqSignIn, context.RepoAssignment, context.UnitTypes())
 
@@ -1291,7 +1291,7 @@ func registerRoutes(m *web.Route) {
 			m.Get("/new", repo.NewRelease)
 			m.Post("/new", web.Bind(forms.NewReleaseForm{}), repo.NewReleasePost)
 			m.Post("/delete", repo.DeleteRelease)
-			m.Post("/attachments", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryAssetAttachmentsReleases), repo.UploadReleaseAttachment)
+			m.Post("/attachments", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeAssetsAttachmentsReleases), repo.UploadReleaseAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 		}, reqSignIn, repo.MustBeNotEmpty, context.RepoMustNotBeArchived(), reqRepoReleaseWriter, context.RepoRef())
 		m.Group("/releases", func() {
@@ -1410,10 +1410,10 @@ func registerRoutes(m *web.Route) {
 		m.Group("/wiki", func() {
 			m.Combo("/").
 				Get(repo.Wiki).
-				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryWiki), repo.WikiPost)
+				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeWiki), repo.WikiPost)
 			m.Combo("/*").
 				Get(repo.Wiki).
-				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryWiki), repo.WikiPost)
+				Post(context.RepoMustNotBeArchived(), reqSignIn, reqRepoWikiWriter, web.Bind(forms.NewWikiForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeWiki), repo.WikiPost)
 			m.Get("/commit/{sha:[a-f0-9]{4,64}}", repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.Diff)
 			m.Get("/commit/{sha:[a-f0-9]{4,64}}.{ext:patch|diff}", repo.RawDiff)
 		}, repo.MustEnableWiki, func(ctx *context.Context) {
@@ -1490,9 +1490,9 @@ func registerRoutes(m *web.Route) {
 				m.Get("/list", context.RepoRef(), repo.GetPullCommits)
 				m.Get("/{sha:[a-f0-9]{4,40}}", context.RepoRef(), repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.SetShowOutdatedComments, repo.ViewPullFilesForSingleCommit)
 			})
-			m.Post("/merge", context.RepoMustNotBeArchived(), web.Bind(forms.MergePullRequestForm{}), context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitTotal), repo.MergePullRequest)
+			m.Post("/merge", context.RepoMustNotBeArchived(), web.Bind(forms.MergePullRequestForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeGitAll), repo.MergePullRequest)
 			m.Post("/cancel_auto_merge", context.RepoMustNotBeArchived(), repo.CancelAutoMergePullRequest)
-			m.Post("/update", context.EnforceQuotaWeb(quota_service.QuotaLimitCategoryGitTotal), repo.UpdatePullRequest)
+			m.Post("/update", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeGitAll), repo.UpdatePullRequest)
 			m.Post("/set_allow_maintainer_edit", web.Bind(forms.UpdateAllowEditsForm{}), repo.SetAllowEdits)
 			m.Post("/cleanup", context.RepoMustNotBeArchived(), context.RepoRef(), repo.CleanUpPullRequest)
 			m.Group("/files", func() {

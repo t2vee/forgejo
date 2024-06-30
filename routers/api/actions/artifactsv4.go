@@ -92,13 +92,13 @@ import (
 
 	"code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/storage"
 	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/context"
-	quota_service "code.gitea.io/gitea/services/quota"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -291,9 +291,9 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 	}
 
 	// check the owner's quota
-	ok, err := quota_service.IsWithinQuotaLimit(ctx, task.OwnerID, quota_service.QuotaLimitCategoryAssetArtifacts)
+	ok, err := quota_model.EvaluateForUser(ctx, task.OwnerID, quota_model.LimitSubjectSizeAssetsArtifacts)
 	if err != nil {
-		log.Error("CheckFilesQuotaLimitsForUser: %v", err)
+		log.Error("quota_model.EvaluateForUser: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error checking quota")
 		return
 	}

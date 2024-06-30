@@ -6,25 +6,35 @@
 package quota
 
 import (
+	"context"
+
 	"code.gitea.io/gitea/models/db"
+	"code.gitea.io/gitea/modules/setting"
 )
-
-type QuotaKind int //revive:disable-line:exported
-
-const (
-	QuotaKindUser QuotaKind = iota
-)
-
-type QuotaMapping struct { //revive:disable-line:exported
-	ID           int64 `xorm:"pk autoincr"`
-	Kind         QuotaKind
-	MappedID     int64
-	QuotaGroupID int64
-}
 
 func init() {
-	db.RegisterModel(new(QuotaGroup))
-	db.RegisterModel(new(QuotaMapping))
+	db.RegisterModel(new(Rule))
+	db.RegisterModel(new(Group))
+	db.RegisterModel(new(GroupRuleMapping))
+	db.RegisterModel(new(GroupMapping))
+}
+
+func EvaluateForUser(ctx context.Context, userID int64, subject LimitSubject) (bool, error) {
+	if !setting.Quota.Enabled {
+		return true, nil
+	}
+
+	groups, err := GetGroupsForUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	used, err := GetUsedForUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	return groups.Evaluate(*used, subject), nil
 }
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.

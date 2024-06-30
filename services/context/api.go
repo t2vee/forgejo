@@ -43,7 +43,8 @@ type APIContext struct {
 	Comment    *issues_model.Comment
 	Org        *APIOrganization
 	Package    *Package
-	QuotaGroup *quota_model.QuotaGroup
+	QuotaGroup *quota_model.Group
+	QuotaRule  *quota_model.Rule
 }
 
 func init() {

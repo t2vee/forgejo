@@ -12,9 +12,95 @@ import (
 	action_model "code.gitea.io/gitea/models/actions"
 	issue_model "code.gitea.io/gitea/models/issues"
 	package_model "code.gitea.io/gitea/models/packages"
+	quota_model "code.gitea.io/gitea/models/quota"
 	repo_model "code.gitea.io/gitea/models/repo"
 	api "code.gitea.io/gitea/modules/structs"
 )
+
+func ToQuotaRuleInfo(rule quota_model.Rule, with_name bool) api.QuotaRuleInfo {
+	info := api.QuotaRuleInfo{
+		Limit:    rule.Limit,
+		Subjects: make([]string, len(rule.Subjects)),
+	}
+	for i := range len(rule.Subjects) {
+		info.Subjects[i] = rule.Subjects[i].String()
+	}
+
+	if with_name {
+		info.Name = rule.Name
+	}
+
+	return info
+}
+
+func toQuotaInfoUsed(used *quota_model.Used) api.QuotaUsed {
+	info := api.QuotaUsed{
+		Size: api.QuotaUsedSize{
+			Repos: api.QuotaUsedSizeRepos{
+				Public:  used.Size.Repos.Public,
+				Private: used.Size.Repos.Private,
+			},
+			Git: api.QuotaUsedSizeGit{
+				LFS: used.Size.Git.LFS,
+			},
+			Assets: api.QuotaUsedSizeAssets{
+				Attachments: api.QuotaUsedSizeAssetsAttachments{
+					Issues:   used.Size.Assets.Attachments.Issues,
+					Releases: used.Size.Assets.Attachments.Releases,
+				},
+				Artifacts: used.Size.Assets.Artifacts,
+				Packages: api.QuotaUsedSizeAssetsPackages{
+					All: used.Size.Assets.Packages.All,
+				},
+			},
+		},
+	}
+	return info
+}
+
+func ToQuotaInfo(used *quota_model.Used, groups quota_model.GroupList) api.QuotaInfo {
+	info := api.QuotaInfo{
+		Used: toQuotaInfoUsed(used),
+	}
+
+	for _, group := range groups {
+		for _, rule := range group.Rules {
+			info.Rules = append(info.Rules, ToQuotaRuleInfo(rule, false))
+		}
+	}
+
+	return info
+}
+
+func ToQuotaInfoAdmin(used *quota_model.Used, groups quota_model.GroupList) api.QuotaInfoAdmin {
+	info := api.QuotaInfoAdmin{
+		Used:   toQuotaInfoUsed(used),
+		Groups: ToQuotaGroupList(groups),
+	}
+	return info
+}
+
+func ToQuotaGroup(group quota_model.Group) api.QuotaGroup {
+	info := api.QuotaGroup{
+		Name:  group.Name,
+		Rules: make([]api.QuotaRuleInfo, len(group.Rules)),
+	}
+	for i := range len(group.Rules) {
+		info.Rules[i] = ToQuotaRuleInfo(group.Rules[i], true)
+	}
+
+	return info
+}
+
+func ToQuotaGroupList(groups quota_model.GroupList) api.QuotaGroupList {
+	list := make(api.QuotaGroupList, len(groups))
+
+	for i := range len(groups) {
+		list[i] = ToQuotaGroup(*groups[i])
+	}
+
+	return list
+}
 
 func ToQuotaUsedAttachmentList(ctx context.Context, attachments []*repo_model.Attachment) (*api.QuotaUsedAttachmentList, error) {
 	getAttachmentContainer := func(a *repo_model.Attachment) (string, string, error) {

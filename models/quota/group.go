@@ -1,0 +1,220 @@
+// Copyright 2024 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: EUPL-1.2
+//
+// Hello! Stare at this code long enough, and it might stare back.
+
+package quota
+
+import (
+	"context"
+
+	"code.gitea.io/gitea/models/db"
+	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/setting"
+
+	"xorm.io/builder"
+)
+
+type (
+	GroupList []*Group
+	Group     struct {
+		// Name of the quota group
+		Name  string `json:"name" xorm:"index UNIQUE NOT NULL" binding:"Required"`
+		Rules []Rule `json:"rules" xorm:"-"`
+	}
+)
+
+type GroupRuleMapping struct {
+	GroupName string `xorm:"index unique(quota_group_rule_mapping) not null" json:"group_name"`
+	RuleName  string `xorm:"unique(quota_group_rule_mapping) not null" json:"rule_name"`
+}
+
+type Kind int
+
+const (
+	KindUser Kind = iota
+)
+
+type GroupMapping struct {
+	Kind      Kind
+	MappedID  int64
+	GroupName string
+}
+
+func (g *Group) TableName() string {
+	return "quota_group"
+}
+
+func (grm *GroupRuleMapping) TableName() string {
+	return "quota_group_rule_mapping"
+}
+
+func (ugm *GroupMapping) TableName() string {
+	return "quota_group_mapping"
+}
+
+func (g *Group) LoadRules(ctx context.Context) error {
+	return db.GetEngine(ctx).Select("`quota_rule`.*").
+		Table("quota_rule").
+		Join("INNER", "`quota_group_rule_mapping`", "`quota_group_rule_mapping`.rule_name = `quota_rule`.name").
+		Where("`quota_group_rule_mapping`.group_name = ?", g.Name).
+		Find(&g.Rules)
+}
+
+func (g *Group) AddUserByID(ctx context.Context, userID int64) error {
+	_, err := db.GetEngine(ctx).Insert(&GroupMapping{
+		Kind:      KindUser,
+		MappedID:  userID,
+		GroupName: g.Name,
+	})
+	return err
+}
+
+func (g *Group) RemoveUserByID(ctx context.Context, userID int64) error {
+	_, err := db.GetEngine(ctx).Delete(&GroupMapping{
+		Kind:      KindUser,
+		MappedID:  userID,
+		GroupName: g.Name,
+	})
+	return err
+}
+
+func (g *Group) AddRuleByName(ctx context.Context, ruleName string) error {
+	_, err := db.GetEngine(ctx).Insert(&GroupRuleMapping{
+		GroupName: g.Name,
+		RuleName:  ruleName,
+	})
+	return err
+}
+
+func (g *Group) RemoveRuleByName(ctx context.Context, ruleName string) error {
+	_, err := db.GetEngine(ctx).Delete(&GroupRuleMapping{
+		GroupName: g.Name,
+		RuleName:  ruleName,
+	})
+	return err
+}
+
+func (g *Group) Evaluate(used Used, for_subject LimitSubject) (bool, bool) {
+	var found bool
+	for _, rule := range g.Rules {
+		ok, has := rule.Evaluate(used, for_subject)
+		if has {
+			found = true
+			if !ok {
+				return false, true
+			}
+		}
+	}
+	return true, found
+}
+
+func (gl *GroupList) Evaluate(used Used, for_subject LimitSubject) bool {
+	for _, group := range *gl {
+		ok, has := group.Evaluate(used, for_subject)
+		if has && ok {
+			return true
+		}
+	}
+	return false
+}
+
+func GetGroupByName(ctx context.Context, name string) (*Group, error) {
+	var group Group
+	has, err := db.GetEngine(ctx).Where("name = ?", name).Get(&group)
+	if has {
+		if err = group.LoadRules(ctx); err != nil {
+			return nil, err
+		}
+		return &group, nil
+	}
+	return nil, err
+}
+
+func ListGroups(ctx context.Context) (GroupList, error) {
+	var groups GroupList
+	err := db.GetEngine(ctx).Find(&groups)
+	return groups, err
+}
+
+func CreateGroup(ctx context.Context, name string) error {
+	_, err := db.GetEngine(ctx).Insert(Group{Name: name})
+	return err
+}
+
+func ListUsersInGroup(ctx context.Context, name string) ([]*user_model.User, error) {
+	group, err := GetGroupByName(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var users []*user_model.User
+	err = db.GetEngine(ctx).Select("`user`.*").
+		Table("user").
+		Join("INNER", "`quota_group_mapping`", "`quota_group_mapping`.mapped_id = `user`.id").
+		Where("`quota_group_mapping`.kind = ? AND `quota_group_mapping`.group_name = ?", KindUser, group.Name).
+		Find(&users)
+	return users, err
+}
+
+func DeleteGroupByName(ctx context.Context, name string) error {
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	_, err = db.GetEngine(ctx).Delete(GroupMapping{
+		GroupName: name,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = db.GetEngine(ctx).Delete(GroupRuleMapping{
+		GroupName: name,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = db.GetEngine(ctx).Delete(Group{Name: name})
+	return err
+}
+
+func GetGroupsForUser(ctx context.Context, userID int64) (GroupList, error) {
+	var groups GroupList
+	err := db.GetEngine(ctx).
+		Where(builder.In("name",
+			builder.Select("group_name").
+				From("quota_group_mapping").
+				Where(builder.And(
+					builder.Eq{"kind": KindUser},
+					builder.Eq{"mapped_id": userID}),
+				))).
+		Find(&groups)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(groups) == 0 {
+		err = db.GetEngine(ctx).Where(builder.In("name", setting.Quota.DefaultGroups)).Find(&groups)
+		if err != nil {
+			return nil, err
+		}
+		if len(groups) == 0 {
+			return nil, nil
+		}
+	}
+
+	for _, group := range groups {
+		err = group.LoadRules(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return groups, nil
+}
+
+// I am glad you read this far, but you now feel a pair of eyes watching you.
+// Told you so.
