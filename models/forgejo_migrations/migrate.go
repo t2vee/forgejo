@@ -75,7 +75,7 @@ var migrations = []*Migration{
 	// v18 -> v19
 	NewMigration("Create the `following_repo` table", CreateFollowingRepoTable),
 	// v19 -> v20
-	NewMigration("Add pronoun privacy settings to user", forgejo_v1_22.AddHidePronounsOptionToUser),
+	NewMigration("Add pronoun privacy settings to user", AddHidePronounsOptionToUser),
 }
 
 // GetCurrentDBVersion returns the current Forgejo database version.
