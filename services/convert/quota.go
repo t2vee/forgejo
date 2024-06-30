@@ -17,7 +17,7 @@ import (
 	api "code.gitea.io/gitea/modules/structs"
 )
 
-func ToQuotaRuleInfo(rule quota_model.Rule, with_name bool) api.QuotaRuleInfo {
+func ToQuotaRuleInfo(rule quota_model.Rule, withName bool) api.QuotaRuleInfo {
 	info := api.QuotaRuleInfo{
 		Limit:    rule.Limit,
 		Subjects: make([]string, len(rule.Subjects)),
@@ -26,7 +26,7 @@ func ToQuotaRuleInfo(rule quota_model.Rule, with_name bool) api.QuotaRuleInfo {
 		info.Subjects[i] = rule.Subjects[i].String()
 	}
 
-	if with_name {
+	if withName {
 		info.Name = rule.Name
 	}
 

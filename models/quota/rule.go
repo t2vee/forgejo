@@ -97,22 +97,22 @@ var indirectMap = map[LimitSubject]LimitSubjects{
 	},
 }
 
-func (r Rule) Evaluate(used Used, for_subject LimitSubject) (bool, bool) {
+func (r Rule) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 	// If there's no limit, short circuit out
 	if r.Limit == -1 {
 		return true, true
 	}
 
 	// If evaluating against a subject the rule directly covers, return that
-	if slices.Contains(r.Subjects, for_subject) {
-		return used.CalculateFor(for_subject) <= r.Limit, true
+	if slices.Contains(r.Subjects, forSubject) {
+		return used.CalculateFor(forSubject) <= r.Limit, true
 	}
 
 	// If evaluating against a subject the rule does not directly cover, check
 	// if we have any rule that covers it indirectly.
-	var result bool = true
+	result := true
 	var found bool
-	for _, subject := range indirectMap[for_subject] {
+	for _, subject := range indirectMap[forSubject] {
 		if !slices.Contains(r.Subjects, subject) {
 			continue
 		}

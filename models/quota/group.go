@@ -95,10 +95,10 @@ func (g *Group) RemoveRuleByName(ctx context.Context, ruleName string) error {
 	return err
 }
 
-func (g *Group) Evaluate(used Used, for_subject LimitSubject) (bool, bool) {
+func (g *Group) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 	var found bool
 	for _, rule := range g.Rules {
-		ok, has := rule.Evaluate(used, for_subject)
+		ok, has := rule.Evaluate(used, forSubject)
 		if has {
 			found = true
 			if !ok {
@@ -109,9 +109,9 @@ func (g *Group) Evaluate(used Used, for_subject LimitSubject) (bool, bool) {
 	return true, found
 }
 
-func (gl *GroupList) Evaluate(used Used, for_subject LimitSubject) bool {
+func (gl *GroupList) Evaluate(used Used, forSubject LimitSubject) bool {
 	for _, group := range *gl {
-		ok, has := group.Evaluate(used, for_subject)
+		ok, has := group.Evaluate(used, forSubject)
 		if has && ok {
 			return true
 		}
