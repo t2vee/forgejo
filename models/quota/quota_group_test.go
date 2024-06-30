@@ -43,6 +43,48 @@ func TestQuotaGroupAllRulesMustPass(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestQuotaGroupRuleScenario1(t *testing.T) {
+	group := quota_model.Group{
+		Rules: []quota_model.Rule{
+			{
+				Limit: 1024,
+				Subjects: quota_model.LimitSubjects{
+					quota_model.LimitSubjectSizeAssetsAttachmentsReleases,
+					quota_model.LimitSubjectSizeGitLFS,
+					quota_model.LimitSubjectSizeAssetsPackagesAll,
+				},
+			},
+			{
+				Limit: 0,
+				Subjects: quota_model.LimitSubjects{
+					quota_model.LimitSubjectSizeGitLFS,
+				},
+			},
+		},
+	}
+
+	used := quota_model.Used{}
+	used.Size.Assets.Attachments.Releases = 512
+	used.Size.Assets.Packages.All = 256
+	used.Size.Git.LFS = 16
+
+	ok, has := group.Evaluate(used, quota_model.LimitSubjectSizeAssetsAttachmentsReleases)
+	assert.True(t, has, "size:assets:attachments:releases is covered")
+	assert.True(t, ok, "size:assets:attachments:releases passes")
+
+	ok, has = group.Evaluate(used, quota_model.LimitSubjectSizeAssetsPackagesAll)
+	assert.True(t, has, "size:assets:packages:all is covered")
+	assert.True(t, ok, "size:assets:packages:all passes")
+
+	ok, has = group.Evaluate(used, quota_model.LimitSubjectSizeGitLFS)
+	assert.True(t, has, "size:git:lfs is covered")
+	assert.False(t, ok, "size:git:lfs fails")
+
+	ok, has = group.Evaluate(used, quota_model.LimitSubjectSizeAll)
+	assert.True(t, has, "size:all is covered")
+	assert.False(t, ok, "size:all fails")
+}
+
 func TestQuotaGroupRuleCombination(t *testing.T) {
 	repoRule := quota_model.Rule{
 		Limit: 4096,
