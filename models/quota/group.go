@@ -26,8 +26,8 @@ type (
 
 type GroupRuleMapping struct {
 	ID        int64  `xorm:"pk autoincr" json:"-"`
-	GroupName string `xorm:"index unique(quota_group_rule_mapping) not null" json:"group_name"`
-	RuleName  string `xorm:"unique(quota_group_rule_mapping) not null" json:"rule_name"`
+	GroupName string `xorm:"index unique(qgrm_gr) not null" json:"group_name"`
+	RuleName  string `xorm:"unique(qgrm_gr) not null" json:"rule_name"`
 }
 
 type Kind int
@@ -38,9 +38,9 @@ const (
 
 type GroupMapping struct {
 	ID        int64  `xorm:"pk autoincr"`
-	Kind      Kind   `xorm:"unique(quota_group_mapping) not null"`
-	MappedID  int64  `xorm:"unique(quota_group_mapping) not null"`
-	GroupName string `xorm:"index unique(quota_group_mapping) not null"`
+	Kind      Kind   `xorm:"unique(qgm_kmg) not null"`
+	MappedID  int64  `xorm:"unique(qgm_kmg) not null"`
+	GroupName string `xorm:"index unique(qgm_kkmg) not null"`
 }
 
 func (g *Group) TableName() string {
