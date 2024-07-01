@@ -6,6 +6,7 @@
 package integration
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -425,6 +426,24 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 
 		assert.Len(t, q, 1)
 		assert.Equal(t, username, q[0].UserName)
+	})
+
+	t.Run("adminSetUserQuotaGroups", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+		defer createQuotaGroup(t, "test-1")()
+		defer createQuotaGroup(t, "test-2")()
+
+		req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/admin/users/%s/quota/groups", username), api.SetUserQuotaGroupsOptions{
+			Groups: &[]string{"default", "test-1", "test-2"},
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: username})
+
+		groups, err := quota_model.GetGroupsForUser(db.DefaultContext, user.ID)
+		assert.NoError(t, err)
+		assert.Len(t, groups, 3)
 	})
 }
 

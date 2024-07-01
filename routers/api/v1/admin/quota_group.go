@@ -239,7 +239,7 @@ func SetUserQuotaGroups(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.SetUserQuotaGroupsOptions)
 
-	err := quota_model.SetUserGroups(ctx, ctx.Doer.ID, form.Groups)
+	err := quota_model.SetUserGroups(ctx, ctx.ContextUser.ID, form.Groups)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "quota_model.SetUserGroups", err)
 	}
