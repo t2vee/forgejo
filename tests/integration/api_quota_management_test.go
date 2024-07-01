@@ -134,6 +134,22 @@ func TestAPIQuotaEmptyState(t *testing.T) {
 	})
 }
 
+func createQuotaRule(t *testing.T, opts api.CreateQuotaRuleOptions) func() {
+	t.Helper()
+
+	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{IsAdmin: true})
+	adminSession := loginUser(t, admin.Name)
+	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
+
+	req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", opts).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusCreated)
+
+	return func() {
+		req := NewRequestf(t, "DELETE", "/api/v1/admin/quota/rules/%s", opts.Name).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+	}
+}
+
 func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
@@ -143,25 +159,13 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	adminSession := loginUser(t, admin.Name)
 	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
 
-	createRule := func(t *testing.T, opts api.CreateQuotaRuleOptions) func() {
-		t.Helper()
-
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", opts).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
-
-		return func() {
-			req := NewRequestf(t, "DELETE", "/api/v1/admin/quota/rules/%s", opts.Name).AddTokenAuth(adminToken)
-			adminSession.MakeRequest(t, req, http.StatusNoContent)
-		}
-	}
-
 	zero := int64(0)
 	oneKb := int64(1024)
 
 	t.Run("adminCreateRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		defer createRule(t, api.CreateQuotaRuleOptions{
+		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
 			Name:     "deny-all",
 			Limit:    &zero,
 			Subjects: []string{"size:all"},
@@ -175,7 +179,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	t.Run("adminDeleteRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		createRule(t, api.CreateQuotaRuleOptions{
+		createQuotaRule(t, api.CreateQuotaRuleOptions{
 			Name:     "deny-all",
 			Limit:    &zero,
 			Subjects: []string{"size:all"},
@@ -192,7 +196,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	t.Run("adminEditRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		defer createRule(t, api.CreateQuotaRuleOptions{
+		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
 			Name:     "deny-all",
 			Limit:    &zero,
 			Subjects: []string{"size:all"},
@@ -211,7 +215,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	t.Run("adminListRules", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		defer createRule(t, api.CreateQuotaRuleOptions{
+		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
 			Name:     "deny-all",
 			Limit:    &zero,
 			Subjects: []string{"size:all"},
