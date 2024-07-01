@@ -158,7 +158,7 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 
 // RemoveUserFromQuotaGroup removes a user from a quota group
 func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
-	// swagger:operation DELETE /admin/quota/groups/{quotagroup}/users admin adminRemoveUserFromQuotaGroup
+	// swagger:operation DELETE /admin/quota/groups/{quotagroup}/users/{username} admin adminRemoveUserFromQuotaGroup
 	// ---
 	// summary: Remove a user from a quota group
 	// produces:
@@ -170,10 +170,9 @@ func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
 	//   type: string
 	//   required: true
 	// - name: username
-	//   in: body
+	//   in: path
 	//   description: username of the user to add to the quota group
-	//   schema:
-	//     "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
+	//   type: string
 	//   required: true
 	// responses:
 	//   "204":
@@ -185,9 +184,13 @@ func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	form := web.GetForm(ctx).(*api.QuotaGroupAddOrRemoveUserOption)
+	username := ctx.Params("username")
+	if username == "" {
+		ctx.NotFound()
+		return
+	}
 
-	user, err := user_model.GetUserByName(ctx, form.Username)
+	user, err := user_model.GetUserByName(ctx, username)
 	if err != nil {
 		if user_model.IsErrUserNotExist(err) {
 			ctx.NotFound("GetUserByName", err)

@@ -735,7 +735,9 @@
             "$ref": "#/responses/notFound"
           }
         }
-      },
+      }
+    },
+    "/admin/quota/groups/{quotagroup}/users/{username}": {
       "delete": {
         "produces": [
           "application/json"
@@ -754,13 +756,11 @@
             "required": true
           },
           {
+            "type": "string",
             "description": "username of the user to add to the quota group",
             "name": "username",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
-            }
+            "in": "path",
+            "required": true
           }
         ],
         "responses": {

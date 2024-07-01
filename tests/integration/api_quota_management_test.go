@@ -150,6 +150,24 @@ func createQuotaRule(t *testing.T, opts api.CreateQuotaRuleOptions) func() {
 	}
 }
 
+func createQuotaGroup(t *testing.T, name string) func() {
+	t.Helper()
+
+	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{IsAdmin: true})
+	adminSession := loginUser(t, admin.Name)
+	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
+
+	req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups", api.CreateQuotaGroupOptions{
+		Name: name,
+	}).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusCreated)
+
+	return func() {
+		req := NewRequestf(t, "DELETE", "/api/v1/admin/quota/groups/%s", name).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+	}
+}
+
 func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
@@ -162,7 +180,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	zero := int64(0)
 	oneKb := int64(1024)
 
-	t.Run("adminCreateRule", func(t *testing.T) {
+	t.Run("adminCreateQuotaRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
@@ -176,7 +194,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		assert.EqualValues(t, 0, rule.Limit)
 	})
 
-	t.Run("adminDeleteRule", func(t *testing.T) {
+	t.Run("adminDeleteQuotaRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		createQuotaRule(t, api.CreateQuotaRuleOptions{
@@ -193,7 +211,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		assert.Nil(t, rule)
 	})
 
-	t.Run("adminEditRule", func(t *testing.T) {
+	t.Run("adminEditQuotaRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
@@ -212,7 +230,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		assert.EqualValues(t, 1024, rule.Limit)
 	})
 
-	t.Run("adminListRules", func(t *testing.T) {
+	t.Run("adminListQuotaRules", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
@@ -230,6 +248,183 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		assert.Len(t, rules, 1)
 		assert.Equal(t, "deny-all", rules[0].Name)
 		assert.EqualValues(t, 0, rules[0].Limit)
+	})
+}
+
+func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
+	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+
+	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{IsAdmin: true})
+	adminSession := loginUser(t, admin.Name)
+	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
+
+	zero := int64(0)
+
+	ruleDenyAll := api.CreateQuotaRuleOptions{
+		Name:     "deny-all",
+		Limit:    &zero,
+		Subjects: []string{"size:all"},
+	}
+
+	username := "quota-test-user"
+	defer apiCreateUser(t, username)()
+
+	t.Run("adminCreateQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		defer createQuotaGroup(t, "default")()
+
+		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
+		assert.NoError(t, err)
+		assert.Equal(t, "default", group.Name)
+		assert.Len(t, group.Rules, 0)
+	})
+
+	t.Run("adminDeleteQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		createQuotaGroup(t, "default")
+
+		req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
+		assert.NoError(t, err)
+		assert.Nil(t, group)
+	})
+
+	t.Run("adminAddRuleToQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+		defer createQuotaRule(t, ruleDenyAll)()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
+			Name: "deny-all",
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
+		assert.NoError(t, err)
+		assert.Len(t, group.Rules, 1)
+		assert.Equal(t, "deny-all", group.Rules[0].Name)
+	})
+
+	t.Run("adminRemoveRuleFromQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+		defer createQuotaRule(t, ruleDenyAll)()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
+			Name: "deny-all",
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		req = NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default/rules/deny-all").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
+		assert.NoError(t, err)
+		assert.Equal(t, "default", group.Name)
+		assert.Empty(t, group.Rules)
+	})
+
+	t.Run("adminGetQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+		defer createQuotaRule(t, ruleDenyAll)()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
+			Name: "deny-all",
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		req = NewRequest(t, "GET", "/api/v1/admin/quota/groups/default").AddTokenAuth(adminToken)
+		resp := adminSession.MakeRequest(t, req, http.StatusOK)
+
+		var q api.QuotaGroup
+		DecodeJSON(t, resp, &q)
+
+		assert.Equal(t, "default", q.Name)
+		assert.Len(t, q.Rules, 1)
+		assert.Equal(t, "deny-all", q.Rules[0].Name)
+	})
+
+	t.Run("adminListQuotaGroups", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+		defer createQuotaRule(t, ruleDenyAll)()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
+			Name: "deny-all",
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		req = NewRequest(t, "GET", "/api/v1/admin/quota/groups").AddTokenAuth(adminToken)
+		resp := adminSession.MakeRequest(t, req, http.StatusOK)
+
+		var q api.QuotaGroupList
+		DecodeJSON(t, resp, &q)
+
+		assert.Len(t, q, 1)
+		assert.Equal(t, "default", q[0].Name)
+		assert.Len(t, q[0].Rules, 1)
+		assert.Equal(t, "deny-all", q[0].Rules[0].Name)
+	})
+
+	t.Run("adminAddUserToQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
+			Username: username,
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: username})
+
+		groups, err := quota_model.GetGroupsForUser(db.DefaultContext, user.ID)
+		assert.NoError(t, err)
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "default", groups[0].Name)
+	})
+
+	t.Run("adminRemoveUserFromQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
+			Username: username,
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		req = NewRequestf(t, "DELETE", "/api/v1/admin/quota/groups/default/users/%s", username).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: username})
+		groups, err := quota_model.GetGroupsForUser(db.DefaultContext, user.ID)
+		assert.NoError(t, err)
+		assert.Empty(t, groups)
+	})
+
+	t.Run("adminListUsersInQuotaGroup", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		defer createQuotaGroup(t, "default")()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
+			Username: username,
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		req = NewRequest(t, "GET", "/api/v1/admin/quota/groups/default/users").AddTokenAuth(adminToken)
+		resp := adminSession.MakeRequest(t, req, http.StatusOK)
+
+		var q []api.User
+		DecodeJSON(t, resp, &q)
+
+		assert.Len(t, q, 1)
+		assert.Equal(t, username, q[0].UserName)
 	})
 }
 
