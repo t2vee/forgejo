@@ -208,6 +208,45 @@ func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
+// SetUserQuotaGroups moves the user to specific quota groups
+func SetUserQuotaGroups(ctx *context.APIContext) {
+	// swagger:operation POST /admin/users/{username}/quota/groups admin adminSetUserQuotaGroups
+	// ---
+	// summary: Set the user's quota groups to a given list.
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: username
+	//   in: path
+	//   description: username of the user to add to the quota group
+	//   type: string
+	//   required: true
+	// - name: groups
+	//   in: body
+	//   description: quota group to remove a user from
+	//   schema:
+	//     "$ref": "#/definitions/SetUserQuotaGroupsOptions"
+	//   required: true
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "400":
+	//     "$ref": "#/responses/error"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	form := web.GetForm(ctx).(*api.SetUserQuotaGroupsOptions)
+
+	err := quota_model.SetUserGroups(ctx, ctx.Doer.ID, form.Groups)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "quota_model.SetUserGroups", err)
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
 // DeleteQuotaGroup deletes a quota group
 func DeleteQuotaGroup(ctx *context.APIContext) {
 	// swagger:operation DELETE /admin/quota/groups/{quotagroup} admin adminDeleteQuotaGroup

@@ -7,6 +7,7 @@ package quota
 
 import (
 	"context"
+	"fmt"
 
 	"code.gitea.io/gitea/models/db"
 	user_model "code.gitea.io/gitea/models/user"
@@ -225,6 +226,41 @@ func DeleteGroupByName(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
+	return committer.Commit()
+}
+
+func SetUserGroups(ctx context.Context, userID int64, groups *[]string) error {
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	// First: remove the user from any groups
+	_, err = db.GetEngine(ctx).Where("kind = ? AND mapped_id = ?", KindUser, userID).Delete(GroupMapping{})
+	if err != nil {
+		return err
+	}
+
+	if groups == nil {
+		return nil
+	}
+
+	// Then add the user to each group listed
+	for _, groupName := range *groups {
+		group, err := GetGroupByName(ctx, groupName)
+		if err != nil {
+			return err
+		}
+		if group == nil {
+			return fmt.Errorf("quota group does not exist: %s", groupName)
+		}
+		err = group.AddUserByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+	}
+
 	return committer.Commit()
 }
 

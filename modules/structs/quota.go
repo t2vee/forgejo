@@ -121,6 +121,13 @@ type QuotaGroupAddOrRemoveUserOption struct {
 	Username string `json:"username" binding:"Required"`
 }
 
+// SetUserQuotaGroupsOptions represents the quota groups of a user
+type SetUserQuotaGroupsOptions struct {
+	// Quota groups the user shall have
+	// required: true
+	Groups *[]string `json:"groups"`
+}
+
 // QuotaUsedAttachmentList represents a list of attachment counting towards a user's quota
 type QuotaUsedAttachmentList []*QuotaUsedAttachment
 

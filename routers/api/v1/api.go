@@ -1542,7 +1542,10 @@ func Routes() *web.Route {
 					m.Post("/repos", bind(api.CreateRepoOption{}), admin.CreateRepo)
 					m.Post("/rename", bind(api.RenameUserOption{}), admin.RenameUser)
 					if setting.Quota.Enabled {
-						m.Get("/quota", admin.GetUserQuota)
+						m.Group("/quota", func() {
+							m.Get("", admin.GetUserQuota)
+							m.Post("/groups", bind(api.SetUserQuotaGroupsOptions{}), admin.SetUserQuotaGroups)
+						})
 					}
 				}, context.UserAssignmentAPI())
 			})
