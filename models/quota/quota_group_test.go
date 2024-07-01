@@ -199,5 +199,15 @@ func TestQuotaGroupListAllFailing(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestQuotaGroupListEmpty(t *testing.T) {
+	groups := quota_model.GroupList{}
+
+	used := quota_model.Used{}
+	used.Size.Repos.Public = 2048
+
+	ok := groups.Evaluate(used, quota_model.LimitSubjectSizeAll)
+	assert.True(t, ok)
+}
+
 // I am glad you read this far, but you now feel a pair of eyes watching you.
 // Told you so.

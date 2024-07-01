@@ -149,6 +149,11 @@ func (g *Group) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 }
 
 func (gl *GroupList) Evaluate(used Used, forSubject LimitSubject) bool {
+	// If there are no groups, default to success:
+	if gl == nil || len(*gl) == 0 {
+		return true
+	}
+
 	for _, group := range *gl {
 		ok, has := group.Evaluate(used, forSubject)
 		if has && ok {
