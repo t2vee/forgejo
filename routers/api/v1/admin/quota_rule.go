@@ -167,7 +167,7 @@ func EditQuotaRule(ctx *context.APIContext) {
 		ctx.Error(http.StatusInternalServerError, "quota_model.rule.Edit", err)
 		return
 	}
-	ctx.Status(http.StatusCreated)
+	ctx.Status(http.StatusNoContent)
 }
 
 // DeleteQuotaRule deletes a quota rule

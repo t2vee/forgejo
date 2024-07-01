@@ -217,7 +217,10 @@ func DeleteGroupByName(ctx context.Context, name string) error {
 	}
 
 	_, err = db.GetEngine(ctx).Delete(Group{Name: name})
-	return err
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
 }
 
 func GetGroupsForUser(ctx context.Context, userID int64) (GroupList, error) {

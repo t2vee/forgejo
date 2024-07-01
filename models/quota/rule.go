@@ -97,8 +97,11 @@ func DeleteRuleByName(ctx context.Context, name string) error {
 		return err
 	}
 
-	_, err = db.GetEngine(ctx).Delete(Group{Name: name})
-	return err
+	_, err = db.GetEngine(ctx).Delete(Rule{Name: name})
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
 }
 
 // I am glad you read this far, but you now feel a pair of eyes watching you.

@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	auth_model "code.gitea.io/gitea/models/auth"
+	"code.gitea.io/gitea/models/db"
+	quota_model "code.gitea.io/gitea/models/quota"
 	"code.gitea.io/gitea/models/unittest"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/setting"
@@ -129,6 +131,101 @@ func TestAPIQuotaEmptyState(t *testing.T) {
 
 			assert.Empty(t, q)
 		})
+	})
+}
+
+func TestAPIQuotaAdminRoutesRules(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
+	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+
+	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{IsAdmin: true})
+	adminSession := loginUser(t, admin.Name)
+	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
+
+	createRule := func(t *testing.T, opts api.CreateQuotaRuleOptions) func() {
+		t.Helper()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", opts).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusCreated)
+
+		return func() {
+			req := NewRequestf(t, "DELETE", "/api/v1/admin/quota/rules/%s", opts.Name).AddTokenAuth(adminToken)
+			adminSession.MakeRequest(t, req, http.StatusNoContent)
+		}
+	}
+
+	zero := int64(0)
+	oneKb := int64(1024)
+
+	t.Run("adminCreateRule", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		defer createRule(t, api.CreateQuotaRuleOptions{
+			Name:     "deny-all",
+			Limit:    &zero,
+			Subjects: []string{"size:all"},
+		})()
+
+		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
+		assert.NoError(t, err)
+		assert.EqualValues(t, 0, rule.Limit)
+	})
+
+	t.Run("adminDeleteRule", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		createRule(t, api.CreateQuotaRuleOptions{
+			Name:     "deny-all",
+			Limit:    &zero,
+			Subjects: []string{"size:all"},
+		})
+
+		req := NewRequest(t, "DELETE", "/api/v1/admin/quota/rules/deny-all").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
+		assert.NoError(t, err)
+		assert.Nil(t, rule)
+	})
+
+	t.Run("adminEditRule", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		defer createRule(t, api.CreateQuotaRuleOptions{
+			Name:     "deny-all",
+			Limit:    &zero,
+			Subjects: []string{"size:all"},
+		})()
+
+		req := NewRequestWithJSON(t, "PATCH", "/api/v1/admin/quota/rules/deny-all", api.EditQuotaRuleOptions{
+			Limit: &oneKb,
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
+		assert.NoError(t, err)
+		assert.EqualValues(t, 1024, rule.Limit)
+	})
+
+	t.Run("adminListRules", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		defer createRule(t, api.CreateQuotaRuleOptions{
+			Name:     "deny-all",
+			Limit:    &zero,
+			Subjects: []string{"size:all"},
+		})()
+
+		req := NewRequest(t, "GET", "/api/v1/admin/quota/rules").AddTokenAuth(adminToken)
+		resp := adminSession.MakeRequest(t, req, http.StatusOK)
+
+		var rules []api.QuotaRuleInfo
+		DecodeJSON(t, resp, &rules)
+
+		assert.Len(t, rules, 1)
+		assert.Equal(t, "deny-all", rules[0].Name)
+		assert.EqualValues(t, 0, rules[0].Limit)
 	})
 }
 

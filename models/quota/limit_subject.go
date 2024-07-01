@@ -5,10 +5,7 @@
 
 package quota
 
-import (
-	"bytes"
-	"fmt"
-)
+import "fmt"
 
 type (
 	LimitSubject  int
@@ -59,13 +56,6 @@ func (subject LimitSubject) String() string {
 		}
 	}
 	return "<unknown>"
-}
-
-func (subject LimitSubject) MarshalJSON() ([]byte, error) {
-	buffer := bytes.NewBufferString(`"`)
-	buffer.WriteString(subject.String())
-	buffer.WriteString(`"`)
-	return buffer.Bytes(), nil
 }
 
 func (subjects LimitSubjects) GoString() string {
