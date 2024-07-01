@@ -428,5 +428,70 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 	})
 }
 
+func TestAPIQuotaUserRoutes(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
+	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+
+	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{IsAdmin: true})
+	adminSession := loginUser(t, admin.Name)
+	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
+
+	// Create a test user
+	username := "quota-test-user-routes"
+	defer apiCreateUser(t, username)()
+	session := loginUser(t, username)
+	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeAll)
+
+	// Set up rules & groups for the user
+	defer createQuotaGroup(t, "user-routes-deny")()
+	defer createQuotaGroup(t, "user-routes-1kb")()
+
+	zero := int64(0)
+	ruleDenyAll := api.CreateQuotaRuleOptions{
+		Name:     "user-routes-deny-all",
+		Limit:    &zero,
+		Subjects: []string{"size:all"},
+	}
+	defer createQuotaRule(t, ruleDenyAll)()
+	oneKb := int64(1024)
+	rule1KbStuff := api.CreateQuotaRuleOptions{
+		Name:     "user-routes-1kb",
+		Limit:    &oneKb,
+		Subjects: []string{"size:assets:attachments:releases", "size:assets:packages:all", "size:git:lfs"},
+	}
+	defer createQuotaRule(t, rule1KbStuff)()
+
+	req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-deny/rules", api.AddRuleToQuotaGroupOptions{
+		Name: "user-routes-deny-all",
+	}).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusCreated)
+	req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-1kb/rules", api.AddRuleToQuotaGroupOptions{
+		Name: "user-routes-1kb",
+	}).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusCreated)
+
+	req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-deny/users", api.QuotaGroupAddOrRemoveUserOption{
+		Username: username,
+	}).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusCreated)
+	req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-1kb/users", api.QuotaGroupAddOrRemoveUserOption{
+		Username: username,
+	}).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusCreated)
+
+	t.Run("userGetQuota", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		req := NewRequest(t, "GET", "/api/v1/user/quota").AddTokenAuth(token)
+		resp := session.MakeRequest(t, req, http.StatusOK)
+
+		var q api.QuotaInfo
+		DecodeJSON(t, resp, &q)
+
+		assert.Len(t, q.Rules, 2)
+	})
+}
+
 // I am glad you read this far, but you now feel a pair of eyes watching you.
 // Told you so.

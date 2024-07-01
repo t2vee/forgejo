@@ -40,7 +40,7 @@ type GroupMapping struct {
 	ID        int64  `xorm:"pk autoincr"`
 	Kind      Kind   `xorm:"unique(qgm_kmg) not null"`
 	MappedID  int64  `xorm:"unique(qgm_kmg) not null"`
-	GroupName string `xorm:"index unique(qgm_kkmg) not null"`
+	GroupName string `xorm:"index unique(qgm_kmg) not null"`
 }
 
 func (g *Group) TableName() string {
