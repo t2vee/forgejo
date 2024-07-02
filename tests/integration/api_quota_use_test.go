@@ -239,12 +239,23 @@ func testAPIQuotaEnforcement(t *testing.T) {
 
 	t.Run("#/user/repos", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
+		defer env.SetRuleLimit(t, "all", 0)()
+
+		t.Run("CREATE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestWithJSON(t, "POST", "/api/v1/user/repos", api.CreateRepoOption{
+				Name: "quota-exceeded",
+				AutoInit: true,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+		})
 
 		t.Run("LIST", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-		})
-		t.Run("CREATE", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequest(t, "GET", "/api/v1/user/repos").AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusOK)
 		})
 	})
 

@@ -974,7 +974,7 @@ func Routes() *web.Route {
 
 			// (repo scope)
 			m.Combo("/repos", tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository)).Get(user.ListMyRepos).
-				Post(bind(api.CreateRepoOption{}), repo.Create)
+				Post(bind(api.CreateRepoOption{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeReposAll), repo.Create)
 
 			// (repo scope)
 			if !setting.Repository.DisableStars {
