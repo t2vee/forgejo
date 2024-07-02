@@ -37,10 +37,15 @@ type quotaEnvUser struct {
 	Token   string
 }
 
+type quotaEnvOrgs struct {
+	Unlimited api.Organization
+}
+
 type quotaEnv struct {
 	Admin quotaEnvUser
 	User  quotaEnvUser
 	Repo  *repo_model.Repository
+	Orgs  quotaEnvOrgs
 
 	cleanups []func()
 }
@@ -213,6 +218,18 @@ func prepareQuotaEnv(t *testing.T, username string) *quotaEnv {
 	env.Repo = repo
 	env.cleanups = append(env.cleanups, repoCleanup)
 
+	// Create an unlimited organization
+	req := NewRequestWithJSON(t, "POST", "/api/v1/orgs", api.CreateOrgOption{
+		UserName: "unlimited-org",
+	}).AddTokenAuth(env.User.Token)
+	resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+	DecodeJSON(t, resp, &env.Orgs.Unlimited)
+	env.cleanups = append(env.cleanups, func() {
+		req := NewRequest(t, "DELETE", "/api/v1/orgs/unlimited-org?purge=true").
+			AddTokenAuth(env.Admin.Token)
+		env.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
+	})
+
 	return &env
 }
 
@@ -318,9 +335,29 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		})
 	})
 
-	// TODO
 	t.Run("#/repos/migrate", func(t *testing.T) {
-		defer tests.PrintCurrentTest(t)()
+		t.Run("to:limited", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			defer env.SetRuleLimit(t, "all", 0)()
+
+			req := NewRequestWithJSON(t, "POST", "/api/v1/repos/migrate", api.MigrateRepoOptions{
+				CloneAddr: env.Repo.HTMLURL() + ".git",
+				RepoName:  "quota-migrate",
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+		})
+
+		t.Run("to:unlimited", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			defer env.SetRuleLimit(t, "all", 0)()
+
+			req := NewRequestWithJSON(t, "POST", "/api/v1/repos/migrate", api.MigrateRepoOptions{
+				CloneAddr: env.Repo.HTMLURL() + ".git",
+				RepoName:  "quota-migrate",
+				RepoOwner: env.Orgs.Unlimited.UserName,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusUnprocessableEntity)
+		})
 	})
 
 	// TODO
