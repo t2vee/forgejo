@@ -570,7 +570,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			env.WithoutQuota(t, func() {
 				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
 					TagName: "play-release-tag",
-					Title: "play-release",
+					Title:   "play-release",
 				}).AddTokenAuth(env.User.Token)
 				resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
 
@@ -592,7 +592,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 
 				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
 					TagName: "play-release-tag-two",
-					Title: "play-release-two",
+					Title:   "play-release-two",
 				}).AddTokenAuth(env.User.Token)
 				env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 			})
@@ -604,7 +604,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 				env.WithoutQuota(t, func() {
 					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
 						TagName: "play-release-tag-subtest",
-						Title: "play-release-subtest",
+						Title:   "play-release-subtest",
 					}).AddTokenAuth(env.User.Token)
 					env.User.Session.MakeRequest(t, req, http.StatusCreated)
 				})
@@ -634,7 +634,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 				env.WithoutQuota(t, func() {
 					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
 						TagName: "tmp-tag",
-						Title: "tmp-release",
+						Title:   "tmp-release",
 					}).AddTokenAuth(env.User.Token)
 					resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
 
@@ -731,25 +731,46 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
-		// TODO
 		t.Run("tags", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-
 			t.Run("LIST", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "GET", env.APIPathForRepo("/tags")).
+					AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusOK)
 			})
 			t.Run("CREATE", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/tags"), api.CreateTagOption{
+					TagName: "tag-quota-test",
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 			})
 
 			t.Run("{tag}", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
+				env.WithoutQuota(t, func() {
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/tags"), api.CreateTagOption{
+						TagName: "tag-quota-test-2",
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusCreated)
+				})
+
 				t.Run("GET", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/tags/tag-quota-test-2")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("DELETE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "DELETE", env.APIPathForRepo("/tags/tag-quota-test-2")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 				})
 			})
 		})
