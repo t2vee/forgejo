@@ -58,7 +58,7 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 	//   required: true
 	// responses:
 	//   "201":
-	//     "$ref": "#/responses/empty"
+	//     "$ref": "#/responses/QuotaGroup"
 	//   "400":
 	//     "$ref": "#/responses/error"
 	//   "403":
@@ -70,7 +70,7 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.CreateQuotaGroupOptions)
 
-	err := quota_model.CreateGroup(ctx, form.Name)
+	group, err := quota_model.CreateGroup(ctx, form.Name)
 	if err != nil {
 		if quota_model.IsErrGroupAlreadyExists(err) {
 			ctx.Error(http.StatusConflict, "", err)
@@ -79,7 +79,7 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 		}
 		return
 	}
-	ctx.Status(http.StatusCreated)
+	ctx.JSON(http.StatusCreated, convert.ToQuotaGroup(*group))
 }
 
 // ListUsersInQuotaGroup lists all the users in a quota group

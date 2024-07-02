@@ -268,25 +268,26 @@ func doesGroupExist(ctx context.Context, name string) (bool, error) {
 	return db.GetEngine(ctx).Where("name = ?", name).Get(&Group{})
 }
 
-func CreateGroup(ctx context.Context, name string) error {
+func CreateGroup(ctx context.Context, name string) (*Group, error) {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer committer.Close()
 
 	exists, err := doesGroupExist(ctx, name)
 	if err != nil {
-		return err
+		return nil, err
 	} else if exists {
-		return ErrGroupAlreadyExists{Name: name}
+		return nil, ErrGroupAlreadyExists{Name: name}
 	}
 
-	_, err = db.GetEngine(ctx).Insert(Group{Name: name})
+	group := Group{Name: name}
+	_, err = db.GetEngine(ctx).Insert(group)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return committer.Commit()
+	return &group, committer.Commit()
 }
 
 func ListUsersInGroup(ctx context.Context, name string) ([]*user_model.User, error) {

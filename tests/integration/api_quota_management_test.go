@@ -345,7 +345,20 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 	t.Run("adminCreateQuotaGroup", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		defer createQuotaGroup(t, "default")()
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups", api.CreateQuotaGroupOptions{
+			Name: "default",
+		}).AddTokenAuth(adminToken)
+		resp := adminSession.MakeRequest(t, req, http.StatusCreated)
+		defer func() {
+			req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default").AddTokenAuth(adminToken)
+			adminSession.MakeRequest(t, req, http.StatusNoContent)
+		}()
+
+		var q api.QuotaGroup
+		DecodeJSON(t, resp, &q)
+
+		assert.Equal(t, "default", q.Name)
+		assert.Len(t, q.Rules, 0)
 
 		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
 		assert.NoError(t, err)
