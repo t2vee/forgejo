@@ -12,6 +12,8 @@ import (
 	"code.gitea.io/gitea/models/db"
 	package_model "code.gitea.io/gitea/models/packages"
 	repo_model "code.gitea.io/gitea/models/repo"
+
+	"xorm.io/builder"
 )
 
 type Used struct {
@@ -102,34 +104,46 @@ func (u Used) CalculateFor(subject LimitSubject) int64 {
 	return 0
 }
 
+func makeUserOwnedCondition(q string, userID int64) builder.Cond {
+	switch q {
+	case "repositories", "attachments", "artifacts":
+		return builder.Eq{"`repository`.owner_id": userID}
+	case "packages":
+		return builder.Or(
+			builder.Eq{"`repository`.owner_id": userID},
+			builder.And(
+				builder.Eq{"`package`.repo_id": 0},
+				builder.Eq{"`package`.owner_id": userID},
+			),
+		)
+	}
+	return builder.NewCond()
+}
+
 func createQueryFor(ctx context.Context, userID int64, q string) db.Engine {
 	session := db.GetEngine(ctx)
 
 	switch q {
 	case "repositories":
-		return session.Table("repository").
-			Where("owner_id = ?", userID)
+		session = session.Table("repository")
 	case "attachments":
-		return session.
+		session = session.
 			Table("attachment").
-			Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id").
-			Where("`repository`.owner_id = ?", userID)
+			Join("INNER", "`repository`", "`attachment`.repo_id = `repository`.id")
 	case "artifacts":
-		return session.
+		session = session.
 			Table("action_artifact").
-			Join("INNER", "`repository`", "`action_artifact`.repo_id = `repository`.id").
-			Where("`repository`.owner_id = ?", userID)
+			Join("INNER", "`repository`", "`action_artifact`.repo_id = `repository`.id")
 	case "packages":
-		return session.
+		session = session.
 			Table("package_version").
 			Join("INNER", "`package_file`", "`package_file`.version_id = `package_version`.id").
 			Join("INNER", "`package_blob`", "`package_file`.blob_id = `package_blob`.id").
 			Join("INNER", "`package`", "`package_version`.package_id = `package`.id").
-			Join("LEFT OUTER", "`repository`", "`package`.repo_id = `repository`.id").
-			Where("`repository`.owner_id = ? OR (`package`.repo_id = 0 AND `package`.owner_id = ?)", userID, userID)
+			Join("LEFT OUTER", "`repository`", "`package`.repo_id = `repository`.id")
 	}
 
-	return session
+	return session.Where(makeUserOwnedCondition(q, userID))
 }
 
 func GetQuotaAttachmentsForUser(ctx context.Context, userID int64, opts db.ListOptions) (int64, *[]*repo_model.Attachment, error) {
