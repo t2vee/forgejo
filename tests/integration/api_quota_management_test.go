@@ -184,11 +184,23 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 	t.Run("adminCreateQuotaRule", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", api.CreateQuotaRuleOptions{
 			Name:     "deny-all",
 			Limit:    &zero,
 			Subjects: []string{"size:all"},
-		})()
+		}).AddTokenAuth(adminToken)
+		resp := adminSession.MakeRequest(t, req, http.StatusCreated)
+		defer func() {
+			req := NewRequest(t, "DELETE", "/api/v1/admin/quota/rules/deny-all").AddTokenAuth(adminToken)
+			adminSession.MakeRequest(t, req, http.StatusNoContent)
+		}()
+
+		var q api.QuotaRuleInfo
+		DecodeJSON(t, resp, &q)
+
+		assert.Equal(t, "deny-all", q.Name)
+		assert.EqualValues(t, 0, q.Limit)
+		assert.EqualValues(t, []string{"size:all"}, q.Subjects)
 
 		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
 		assert.NoError(t, err)

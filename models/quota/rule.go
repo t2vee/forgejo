@@ -80,30 +80,31 @@ func doesRuleExist(ctx context.Context, name string) (bool, error) {
 		Get(&Rule{})
 }
 
-func CreateRule(ctx context.Context, name string, limit int64, subjects LimitSubjects) error {
+func CreateRule(ctx context.Context, name string, limit int64, subjects LimitSubjects) (*Rule, error) {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer committer.Close()
 
 	exists, err := doesRuleExist(ctx, name)
 	if err != nil {
-		return err
+		return nil, err
 	} else if exists {
-		return ErrRuleAlreadyExists{Name: name}
+		return nil, ErrRuleAlreadyExists{Name: name}
 	}
 
-	_, err = db.GetEngine(ctx).Insert(Rule{
+	rule := Rule{
 		Name:     name,
 		Limit:    limit,
 		Subjects: subjects,
-	})
+	}
+	_, err = db.GetEngine(ctx).Insert(rule)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return committer.Commit()
+	return &rule, committer.Commit()
 }
 
 func DeleteRuleByName(ctx context.Context, name string) error {

@@ -57,7 +57,7 @@ func CreateQuotaRule(ctx *context.APIContext) {
 	//   required: true
 	// responses:
 	//   "201":
-	//     "$ref": "#/responses/empty"
+	//     "$ref": "#/responses/QuotaRuleInfo"
 	//   "400":
 	//     "$ref": "#/responses/error"
 	//   "403":
@@ -84,7 +84,7 @@ func CreateQuotaRule(ctx *context.APIContext) {
 		subjects[i] = subj
 	}
 
-	err := quota_model.CreateRule(ctx, form.Name, *form.Limit, subjects)
+	rule, err := quota_model.CreateRule(ctx, form.Name, *form.Limit, subjects)
 	if err != nil {
 		if quota_model.IsErrRuleAlreadyExists(err) {
 			ctx.Error(http.StatusConflict, "", err)
@@ -93,7 +93,7 @@ func CreateQuotaRule(ctx *context.APIContext) {
 		}
 		return
 	}
-	ctx.Status(http.StatusCreated)
+	ctx.JSON(http.StatusCreated, convert.ToQuotaRuleInfo(*rule, true))
 }
 
 // GetQuotaRule returns information about the specified quota rule
