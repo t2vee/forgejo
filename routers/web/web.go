@@ -942,12 +942,12 @@ func registerRoutes(m *web.Route) {
 
 	// ***** START: Repository *****
 	m.Group("/repo", func() {
-		m.Get("/create", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.Create)
+		m.Get("/create", repo.Create)
 		m.Post("/create", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), web.Bind(forms.CreateRepoForm{}), repo.CreatePost)
-		m.Get("/migrate", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.Migrate)
+		m.Get("/migrate", repo.Migrate)
 		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.MigratePost)
 		if !setting.Repository.DisableForks {
-			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.ForkByID)
+			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, repo.ForkByID)
 		}
 		m.Get("/search", repo.SearchRepo)
 	}, reqSignIn)
