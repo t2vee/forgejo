@@ -195,7 +195,7 @@ func TestAPIQuotaUserCleanSlate(t *testing.T) {
 	})
 }
 
-func TestAPIQuotaUserExp(t *testing.T) {
+func TestAPIQuotaUserBasics(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
 		env := prepareQuotaEnv(t, "quota-enforcement")
 		defer env.Cleanup()
