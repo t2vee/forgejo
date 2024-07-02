@@ -51,7 +51,38 @@ func (e *quotaEnv) Cleanup() {
 	}
 }
 
-func (e *quotaEnv) SetupQuotas(t *testing.T) {
+func (e *quotaEnv) SetupWithSingleQuotaRule(t *testing.T) {
+	t.Helper()
+
+	cleaner := test.MockVariableValue(&setting.Quota.Enabled, true)
+	e.cleanups = append(e.cleanups, cleaner)
+	cleaner = test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Create a default group
+	cleaner = createQuotaGroup(t, "default")
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Create a single all-encompassing rule
+	unlimited := int64(0)
+	ruleAll := api.CreateQuotaRuleOptions{
+		Name:     "all",
+		Limit:    &unlimited,
+		Subjects: []string{"size:all"},
+	}
+	cleaner = createQuotaRule(t, ruleAll)
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Add these rules to the group
+	cleaner = e.AddRuleToGroup(t, "default", "all")
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Add the user to the quota group
+	cleaner = e.AddUserToGroup(t, "default", e.User.User.Name)
+	e.cleanups = append(e.cleanups, cleaner)
+}
+
+func (e *quotaEnv) SetupWithMultipleQuotaRules(t *testing.T) {
 	t.Helper()
 
 	cleaner := test.MockVariableValue(&setting.Quota.Enabled, true)
@@ -195,12 +226,328 @@ func TestAPIQuotaUserCleanSlate(t *testing.T) {
 	})
 }
 
+func TestAPIQuotaEnforcement(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		testAPIQuotaEnforcement(t)
+	})
+}
+
+func testAPIQuotaEnforcement(t *testing.T) {
+	env := prepareQuotaEnv(t, "quota-enforcement")
+	defer env.Cleanup()
+	env.SetupWithSingleQuotaRule(t)
+
+	t.Run("#/user/repos", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		t.Run("LIST", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+		t.Run("CREATE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+	})
+
+	t.Run("#/orgs/{org}/repos", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		t.Run("LIST", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+		t.Run("CREATE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+	})
+
+	t.Run("#/repos/migrate", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+	})
+
+	t.Run("#/repos/{template_owner}/{template_repo}/generate", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+	})
+
+	t.Run("#/repos/{username}/{reponame}", func(t *testing.T) {
+		t.Run("GET", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+		t.Run("DELETE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+		t.Run("PATCH", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+
+		t.Run("branches", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+
+			t.Run("{branch}", func(t *testing.T) {
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("DELETE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+			})
+		})
+
+		t.Run("contents", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+
+			t.Run("{filepath}", func(t *testing.T) {
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("CREATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("UPDATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("DELETE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+			})
+		})
+
+		t.Run("diffpatch", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+
+		t.Run("forks", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+		})
+
+		t.Run("mirror-sync", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+
+		t.Run("issues", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("comments/{id}/assets", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				t.Run("LIST", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("CREATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+
+				t.Run("{attachment_id}", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					t.Run("GET", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+					t.Run("DELETE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+					t.Run("UPDATE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+				})
+			})
+
+			t.Run("{index}/assets", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				t.Run("LIST", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("CREATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+
+				t.Run("{attachment_id}", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					t.Run("GET", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+					t.Run("DELETE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+					t.Run("UPDATE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+				})
+			})
+		})
+
+		t.Run("pulls", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+
+			t.Run("{index}", func(t *testing.T) {
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("UPDATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+
+				t.Run("merge", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					t.Run("GET", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+					t.Run("MERGE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+				})
+			})
+		})
+
+		t.Run("push_mirrors", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+		})
+
+		t.Run("releases", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+
+			t.Run("tags/{tag}", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("DELETE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+			})
+
+			t.Run("{id}", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("UPDATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("DELETE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+
+				t.Run("assets", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					t.Run("LIST", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+					t.Run("CREATE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+					})
+
+					t.Run("{attachment_id}", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+
+						t.Run("GET", func(t *testing.T) {
+							defer tests.PrintCurrentTest(t)()
+						})
+						t.Run("UPDATE", func(t *testing.T) {
+							defer tests.PrintCurrentTest(t)()
+						})
+						t.Run("DELETE", func(t *testing.T) {
+							defer tests.PrintCurrentTest(t)()
+						})
+					})
+				})
+			})
+		})
+
+		t.Run("tags", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+
+			t.Run("{tag}", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("DELETE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+			})
+		})
+
+		t.Run("transfer", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+	})
+
+	t.Run("#/packages/{owner}/{type}/{name}/{version}", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		t.Run("CREATE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+		t.Run("GET", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+		t.Run("DELETE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+		})
+	})
+}
+
 func TestAPIQuotaUserBasics(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
 		env := prepareQuotaEnv(t, "quota-enforcement")
 		defer env.Cleanup()
 
-		env.SetupQuotas(t)
+		env.SetupWithMultipleQuotaRules(t)
 
 		t.Run("quota usage change", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
