@@ -114,13 +114,6 @@ type EditQuotaRuleOptions struct {
 	Subjects *[]string `json:"subjects"`
 }
 
-// QuotaGroupAddOrRemoveUserOption represents the options for quota group membership management
-type QuotaGroupAddOrRemoveUserOption struct {
-	// Name of the user to add to or remove from the quota group
-	// required: true
-	Username string `json:"username" binding:"Required"`
-}
-
 // SetUserQuotaGroupsOptions represents the quota groups of a user
 type SetUserQuotaGroupsOptions struct {
 	// Quota groups the user shall have

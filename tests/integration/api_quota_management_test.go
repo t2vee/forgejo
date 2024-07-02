@@ -553,10 +553,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		defer createQuotaGroup(t, "default")()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
-			Username: username,
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/default/users/%s", username).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: username})
 
@@ -569,32 +567,24 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 			t.Run("non-existing group", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
-				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/does-not-exist/users", api.QuotaGroupAddOrRemoveUserOption{
-					Username: username,
-				}).AddTokenAuth(adminToken)
+				req := NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/does-not-exist/users/%s", username).AddTokenAuth(adminToken)
 				adminSession.MakeRequest(t, req, http.StatusNotFound)
 			})
 
 			t.Run("non-existing user", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
-				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
-					Username: "this-user-does-not-exist",
-				}).AddTokenAuth(adminToken)
+				req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/users/this-user-does-not-exist").AddTokenAuth(adminToken)
 				adminSession.MakeRequest(t, req, http.StatusNotFound)
 			})
 
 			t.Run("user already added", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
-				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
-					Username: "user1",
-				}).AddTokenAuth(adminToken)
-				adminSession.MakeRequest(t, req, http.StatusCreated)
+				req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/users/user1").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNoContent)
 
-				req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
-					Username: "user1",
-				}).AddTokenAuth(adminToken)
+				req = NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/users/user1").AddTokenAuth(adminToken)
 				adminSession.MakeRequest(t, req, http.StatusConflict)
 			})
 		})
@@ -604,10 +594,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		defer createQuotaGroup(t, "default")()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
-			Username: username,
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/default/users/%s", username).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		req = NewRequestf(t, "DELETE", "/api/v1/admin/quota/groups/default/users/%s", username).AddTokenAuth(adminToken)
 		adminSession.MakeRequest(t, req, http.StatusNoContent)
@@ -645,10 +633,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		defer createQuotaGroup(t, "default")()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
-			Username: username,
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/default/users/%s", username).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		req = NewRequest(t, "GET", "/api/v1/admin/quota/groups/default/users").AddTokenAuth(adminToken)
 		resp := adminSession.MakeRequest(t, req, http.StatusOK)
@@ -751,14 +737,10 @@ func TestAPIQuotaUserRoutes(t *testing.T) {
 	}).AddTokenAuth(adminToken)
 	adminSession.MakeRequest(t, req, http.StatusCreated)
 
-	req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-deny/users", api.QuotaGroupAddOrRemoveUserOption{
-		Username: username,
-	}).AddTokenAuth(adminToken)
-	adminSession.MakeRequest(t, req, http.StatusCreated)
-	req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-1kb/users", api.QuotaGroupAddOrRemoveUserOption{
-		Username: username,
-	}).AddTokenAuth(adminToken)
-	adminSession.MakeRequest(t, req, http.StatusCreated)
+	req = NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/user-routes-deny/users/%s", username).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusNoContent)
+	req = NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/user-routes-1kb/users/%s", username).AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 	t.Run("userGetQuota", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()

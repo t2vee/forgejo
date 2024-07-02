@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	quota_model "code.gitea.io/gitea/models/quota"
-	user_model "code.gitea.io/gitea/models/user"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/context"
@@ -115,7 +114,7 @@ func ListUsersInQuotaGroup(ctx *context.APIContext) {
 
 // AddUserToQuotaGroup adds a user to a quota group
 func AddUserToQuotaGroup(ctx *context.APIContext) {
-	// swagger:operation POST /admin/quota/groups/{quotagroup}/users admin adminAddUserToQuotaGroup
+	// swagger:operation PUT /admin/quota/groups/{quotagroup}/users/{username} admin adminAddUserToQuotaGroup
 	// ---
 	// summary: Add a user to a quota group
 	// produces:
@@ -127,13 +126,12 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 	//   type: string
 	//   required: true
 	// - name: username
-	//   in: body
+	//   in: path
 	//   description: username of the user to add to the quota group
-	//   schema:
-	//     "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
+	//   type: string
 	//   required: true
 	// responses:
-	//   "201":
+	//   "204":
 	//     "$ref": "#/responses/empty"
 	//   "400":
 	//     "$ref": "#/responses/error"
@@ -146,19 +144,7 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	form := web.GetForm(ctx).(*api.QuotaGroupAddOrRemoveUserOption)
-
-	user, err := user_model.GetUserByName(ctx, form.Username)
-	if err != nil {
-		if user_model.IsErrUserNotExist(err) {
-			ctx.NotFound("GetUserByName", err)
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
-		}
-		return
-	}
-
-	err = ctx.QuotaGroup.AddUserByID(ctx, user.ID)
+	err := ctx.QuotaGroup.AddUserByID(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		if quota_model.IsErrUserAlreadyInGroup(err) {
 			ctx.Error(http.StatusConflict, "", err)
@@ -167,7 +153,7 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 		}
 		return
 	}
-	ctx.Status(http.StatusCreated)
+	ctx.Status(http.StatusNoContent)
 }
 
 // RemoveUserFromQuotaGroup removes a user from a quota group
@@ -198,23 +184,7 @@ func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	username := ctx.Params("username")
-	if username == "" {
-		ctx.NotFound()
-		return
-	}
-
-	user, err := user_model.GetUserByName(ctx, username)
-	if err != nil {
-		if user_model.IsErrUserNotExist(err) {
-			ctx.NotFound("GetUserByName", err)
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
-		}
-		return
-	}
-
-	err = ctx.QuotaGroup.RemoveUserByID(ctx, user.ID)
+	err := ctx.QuotaGroup.RemoveUserByID(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		if quota_model.IsErrUserNotInGroup(err) {
 			ctx.NotFound()

@@ -1589,9 +1589,10 @@ func Routes() *web.Route {
 								m.Delete("/{quotarule}", context.QuotaRuleAssignmentAPI(), admin.RemoveRuleFromQuotaGroup)
 							})
 							m.Group("/users", func() {
-								m.Combo("").Get(admin.ListUsersInQuotaGroup).
-									Post(bind(api.QuotaGroupAddOrRemoveUserOption{}), admin.AddUserToQuotaGroup)
-								m.Delete("/{username}", admin.RemoveUserFromQuotaGroup)
+								m.Get("", admin.ListUsersInQuotaGroup)
+								m.Combo("/{username}", context.UserAssignmentAPI()).
+									Put(admin.AddUserToQuotaGroup).
+									Delete(admin.RemoveUserFromQuotaGroup)
 							})
 						}, context.QuotaGroupAssignmentAPI())
 					})

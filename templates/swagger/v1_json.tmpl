@@ -492,7 +492,7 @@
         ],
         "responses": {
           "201": {
-            "$ref": "#/responses/empty"
+            "$ref": "#/responses/QuotaGroup"
           },
           "400": {
             "$ref": "#/responses/error"
@@ -702,8 +702,10 @@
             "$ref": "#/responses/notFound"
           }
         }
-      },
-      "post": {
+      }
+    },
+    "/admin/quota/groups/{quotagroup}/users/{username}": {
+      "put": {
         "produces": [
           "application/json"
         ],
@@ -721,17 +723,15 @@
             "required": true
           },
           {
+            "type": "string",
             "description": "username of the user to add to the quota group",
             "name": "username",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/QuotaGroupAddOrRemoveUserOption"
-            }
+            "in": "path",
+            "required": true
           }
         ],
         "responses": {
-          "201": {
+          "204": {
             "$ref": "#/responses/empty"
           },
           "400": {
@@ -750,9 +750,7 @@
             "$ref": "#/responses/validationError"
           }
         }
-      }
-    },
-    "/admin/quota/groups/{quotagroup}/users/{username}": {
+      },
       "delete": {
         "produces": [
           "application/json"
@@ -25094,21 +25092,6 @@
             "$ref": "#/definitions/QuotaRuleInfo"
           },
           "x-go-name": "Rules"
-        }
-      },
-      "x-go-package": "code.gitea.io/gitea/modules/structs"
-    },
-    "QuotaGroupAddOrRemoveUserOption": {
-      "description": "QuotaGroupAddOrRemoveUserOption represents the options for quota group membership management",
-      "type": "object",
-      "required": [
-        "username"
-      ],
-      "properties": {
-        "username": {
-          "description": "Name of the user to add to or remove from the quota group",
-          "type": "string",
-          "x-go-name": "Username"
         }
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"

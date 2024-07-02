@@ -106,10 +106,8 @@ func (e *quotaEnv) SetupQuotas(t *testing.T) {
 func (e *quotaEnv) AddUserToGroup(t *testing.T, group, user string) func() {
 	t.Helper()
 
-	req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/admin/quota/groups/%s/users", group), api.QuotaGroupAddOrRemoveUserOption{
-		Username: user,
-	}).AddTokenAuth(e.Admin.Token)
-	e.Admin.Session.MakeRequest(t, req, http.StatusCreated)
+	req := NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/%s/users/%s", group, user).AddTokenAuth(e.Admin.Token)
+	e.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
 
 	return func() {
 		req := NewRequestf(t, "DELETE", "/api/v1/admin/quota/groups/%s/users/%s", group, user).AddTokenAuth(e.Admin.Token)
