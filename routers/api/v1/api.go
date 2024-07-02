@@ -1339,7 +1339,7 @@ func Routes() *web.Route {
 									Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues, context.QuotaTargetRepo), repo.CreateIssueCommentAttachment)
 								m.Combo("/{attachment_id}").
 									Get(repo.GetIssueCommentAttachment).
-									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues, context.QuotaTargetRepo), repo.EditIssueCommentAttachment).
+									Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), repo.EditIssueCommentAttachment).
 									Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueCommentAttachment)
 							}, mustEnableAttachments)
 						}, commentAssignment(":id"))
@@ -1391,7 +1391,7 @@ func Routes() *web.Route {
 								Post(reqToken(), mustNotBeArchived, context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues, context.QuotaTargetRepo), repo.CreateIssueAttachment)
 							m.Combo("/{attachment_id}").
 								Get(repo.GetIssueAttachment).
-								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeAssetsAttachmentsIssues, context.QuotaTargetRepo), repo.EditIssueAttachment).
+								Patch(reqToken(), mustNotBeArchived, bind(api.EditAttachmentOptions{}), repo.EditIssueAttachment).
 								Delete(reqToken(), mustNotBeArchived, repo.DeleteIssueAttachment)
 						}, mustEnableAttachments)
 						m.Combo("/dependencies").

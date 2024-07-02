@@ -6,8 +6,11 @@
 package integration
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -510,56 +513,152 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 		})
 
-		// TODO
 		t.Run("issues", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			t.Run("comments/{id}/assets", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
+			// Create an issue play with
+			req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/issues"), api.CreateIssueOption{
+				Title: "quota test issue",
+			}).AddTokenAuth(env.User.Token)
+			resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
 
-				t.Run("LIST", func(t *testing.T) {
-					defer tests.PrintCurrentTest(t)()
-				})
-				t.Run("CREATE", func(t *testing.T) {
-					defer tests.PrintCurrentTest(t)()
-				})
+			var issue api.Issue
+			DecodeJSON(t, resp, &issue)
 
-				t.Run("{attachment_id}", func(t *testing.T) {
-					defer tests.PrintCurrentTest(t)()
+			createAsset := func(filename string) (*bytes.Buffer, string) {
+				buff := generateImg()
+				body := &bytes.Buffer{}
 
-					t.Run("GET", func(t *testing.T) {
-						defer tests.PrintCurrentTest(t)()
-					})
-					t.Run("DELETE", func(t *testing.T) {
-						defer tests.PrintCurrentTest(t)()
-					})
-					t.Run("UPDATE", func(t *testing.T) {
-						defer tests.PrintCurrentTest(t)()
-					})
-				})
-			})
+				// Setup multi-part
+				writer := multipart.NewWriter(body)
+				part, _ := writer.CreateFormFile("attachment", filename)
+				io.Copy(part, &buff)
+				writer.Close()
+
+				return body, writer.FormDataContentType()
+			}
 
 			t.Run("{index}/assets", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
 				t.Run("LIST", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/issues/%d/assets", issue.Index)).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("CREATE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					body, contentType := createAsset("overquota.png")
+					req := NewRequestWithBody(t, "POST", env.APIPathForRepo("/issues/%d/assets", issue.Index), body).
+						AddTokenAuth(env.User.Token)
+					req.Header.Add("Content-Type", contentType)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 				})
 
 				t.Run("{attachment_id}", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
 
+					var issueAsset api.Attachment
+					env.WithoutQuota(t, func() {
+						body, contentType := createAsset("test.png")
+						req := NewRequestWithBody(t, "POST", env.APIPathForRepo("/issues/%d/assets", issue.Index), body).
+							AddTokenAuth(env.User.Token)
+						req.Header.Add("Content-Type", contentType)
+						resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+						DecodeJSON(t, resp, &issueAsset)
+					})
+
 					t.Run("GET", func(t *testing.T) {
 						defer tests.PrintCurrentTest(t)()
-					})
-					t.Run("DELETE", func(t *testing.T) {
-						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequest(t, "GET", env.APIPathForRepo("/issues/%d/assets/%d", issue.Index, issueAsset.ID)).
+							AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusOK)
 					})
 					t.Run("UPDATE", func(t *testing.T) {
 						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequestWithJSON(t, "PATCH", env.APIPathForRepo("/issues/%d/assets/%d", issue.Index, issueAsset.ID), api.EditAttachmentOptions{
+							Name: "new-name.png",
+						}).AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusCreated)
+					})
+					t.Run("DELETE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequest(t, "DELETE", env.APIPathForRepo("/issues/%d/assets/%d", issue.Index, issueAsset.ID)).
+							AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusNoContent)
+					})
+				})
+			})
+
+			t.Run("comments/{id}/assets", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				// Create a new comment!
+				var comment api.Comment
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/issues/%d/comments", issue.Index), api.CreateIssueCommentOption{
+					Body: "This is a comment",
+				}).AddTokenAuth(env.User.Token)
+				resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+				DecodeJSON(t, resp, &comment)
+
+				t.Run("LIST", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/issues/comments/%d/assets", comment.ID)).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
+				})
+				t.Run("CREATE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					body, contentType := createAsset("overquota.png")
+					req := NewRequestWithBody(t, "POST", env.APIPathForRepo("/issues/comments/%d/assets", comment.ID), body).
+						AddTokenAuth(env.User.Token)
+					req.Header.Add("Content-Type", contentType)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+				})
+
+				t.Run("{attachment_id}", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					var attachment api.Attachment
+					env.WithoutQuota(t, func() {
+						body, contentType := createAsset("test.png")
+						req := NewRequestWithBody(t, "POST", env.APIPathForRepo("/issues/comments/%d/assets", comment.ID), body).
+							AddTokenAuth(env.User.Token)
+						req.Header.Add("Content-Type", contentType)
+						resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+						DecodeJSON(t, resp, &attachment)
+					})
+
+					t.Run("GET", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequest(t, "GET", env.APIPathForRepo("/issues/comments/%d/assets/%d", comment.ID, attachment.ID)).
+							AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusOK)
+					})
+					t.Run("UPDATE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequestWithJSON(t, "PATCH", env.APIPathForRepo("/issues/comments/%d/assets/%d", comment.ID, attachment.ID), api.EditAttachmentOptions{
+							Name: "new-name.png",
+						}).AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusCreated)
+					})
+					t.Run("DELETE", func(t *testing.T) {
+						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequest(t, "DELETE", env.APIPathForRepo("/issues/comments/%d/assets/%d", comment.ID, attachment.ID)).
+							AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 					})
 				})
 			})
