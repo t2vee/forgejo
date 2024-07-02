@@ -142,10 +142,8 @@ func (e *quotaEnv) RemoveRuleFromGroup(t *testing.T, group, rule string) {
 func (e *quotaEnv) AddRuleToGroup(t *testing.T, group, rule string) func() {
 	t.Helper()
 
-	req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/admin/quota/groups/%s/rules", group), api.AddRuleToQuotaGroupOptions{
-		Name: rule,
-	}).AddTokenAuth(e.Admin.Token)
-	e.Admin.Session.MakeRequest(t, req, http.StatusCreated)
+	req := NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/%s/rules/%s", group, rule).AddTokenAuth(e.Admin.Token)
+	e.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
 
 	return func() {
 		e.RemoveRuleFromGroup(t, group, rule)

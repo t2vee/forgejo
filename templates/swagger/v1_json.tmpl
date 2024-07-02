@@ -577,8 +577,8 @@
         }
       }
     },
-    "/admin/quota/groups/{quotagroup}/rules": {
-      "post": {
+    "/admin/quota/groups/{quotagroup}/rules/{quotarule}": {
+      "put": {
         "produces": [
           "application/json"
         ],
@@ -596,17 +596,15 @@
             "required": true
           },
           {
+            "type": "string",
             "description": "the name of the quota rule to add to the group",
-            "name": "name",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AddRuleToQuotaGroupOptions"
-            }
+            "name": "quotarule",
+            "in": "path",
+            "required": true
           }
         ],
         "responses": {
-          "201": {
+          "204": {
             "$ref": "#/responses/empty"
           },
           "400": {
@@ -625,9 +623,7 @@
             "$ref": "#/responses/validationError"
           }
         }
-      }
-    },
-    "/admin/quota/groups/{quotagroup}/rules/{quotarule}": {
+      },
       "delete": {
         "produces": [
           "application/json"
@@ -19713,18 +19709,6 @@
         "permission": {
           "type": "string",
           "x-go-name": "Permission"
-        }
-      },
-      "x-go-package": "code.gitea.io/gitea/modules/structs"
-    },
-    "AddRuleToQuotaGroupOptions": {
-      "description": "AddRuleToQuotaGroupOptions represents the options used to add a quota rule to a quota group",
-      "type": "object",
-      "properties": {
-        "name": {
-          "description": "Name of the quota rule to add to the group",
-          "type": "string",
-          "x-go-name": "Name"
         }
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"

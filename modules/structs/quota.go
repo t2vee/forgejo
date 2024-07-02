@@ -73,12 +73,6 @@ type QuotaRuleInfo struct {
 	Subjects []string `json:"subjects,omitempty"`
 }
 
-// AddRuleToQuotaGroupOptions represents the options used to add a quota rule to a quota group
-type AddRuleToQuotaGroupOptions struct {
-	// Name of the quota rule to add to the group
-	Name string `json:"name" binding:"Required"`
-}
-
 // QuotaGroupList represents a list of quota groups
 type QuotaGroupList []QuotaGroup
 

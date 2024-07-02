@@ -413,10 +413,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer createQuotaGroup(t, "default")()
 		defer createQuotaRule(t, ruleDenyAll)()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
-			Name: "deny-all",
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/rules/deny-all").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
 		assert.NoError(t, err)
@@ -424,29 +422,18 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		assert.Equal(t, "deny-all", group.Rules[0].Name)
 
 		t.Run("unhappy path", func(t *testing.T) {
-			t.Run("no options", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
-
-				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", nil).AddTokenAuth(adminToken)
-				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
-			})
-
 			t.Run("non-existing group", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
-				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/does-not-exist/rules", api.AddRuleToQuotaGroupOptions{
-					Name: "deny-all",
-				}).AddTokenAuth(adminToken)
+				req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/does-not-exist/rules/deny-all").AddTokenAuth(adminToken)
 				adminSession.MakeRequest(t, req, http.StatusNotFound)
 			})
 
 			t.Run("non-existing rule", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
-				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
-					Name: "does-not-exist",
-				}).AddTokenAuth(adminToken)
-				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+				req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/rules/does-not-exist").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
 			})
 		})
 	})
@@ -456,10 +443,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer createQuotaGroup(t, "default")()
 		defer createQuotaRule(t, ruleDenyAll)()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
-			Name: "deny-all",
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/rules/deny-all").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		req = NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default/rules/deny-all").AddTokenAuth(adminToken)
 		adminSession.MakeRequest(t, req, http.StatusNoContent)
@@ -502,10 +487,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer createQuotaGroup(t, "default")()
 		defer createQuotaRule(t, ruleDenyAll)()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
-			Name: "deny-all",
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/rules/deny-all").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		req = NewRequest(t, "GET", "/api/v1/admin/quota/groups/default").AddTokenAuth(adminToken)
 		resp := adminSession.MakeRequest(t, req, http.StatusOK)
@@ -532,10 +515,8 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		defer createQuotaGroup(t, "default")()
 		defer createQuotaRule(t, ruleDenyAll)()
 
-		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
-			Name: "deny-all",
-		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusCreated)
+		req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/default/rules/deny-all").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 		req = NewRequest(t, "GET", "/api/v1/admin/quota/groups").AddTokenAuth(adminToken)
 		resp := adminSession.MakeRequest(t, req, http.StatusOK)
@@ -728,14 +709,10 @@ func TestAPIQuotaUserRoutes(t *testing.T) {
 	}
 	defer createQuotaRule(t, rule1KbStuff)()
 
-	req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-deny/rules", api.AddRuleToQuotaGroupOptions{
-		Name: "user-routes-deny-all",
-	}).AddTokenAuth(adminToken)
-	adminSession.MakeRequest(t, req, http.StatusCreated)
-	req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/user-routes-1kb/rules", api.AddRuleToQuotaGroupOptions{
-		Name: "user-routes-1kb",
-	}).AddTokenAuth(adminToken)
-	adminSession.MakeRequest(t, req, http.StatusCreated)
+	req := NewRequest(t, "PUT", "/api/v1/admin/quota/groups/user-routes-deny/rules/user-routes-deny-all").AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusNoContent)
+	req = NewRequest(t, "PUT", "/api/v1/admin/quota/groups/user-routes-1kb/rules/user-routes-1kb").AddTokenAuth(adminToken)
+	adminSession.MakeRequest(t, req, http.StatusNoContent)
 
 	req = NewRequestf(t, "PUT", "/api/v1/admin/quota/groups/user-routes-deny/users/%s", username).AddTokenAuth(adminToken)
 	adminSession.MakeRequest(t, req, http.StatusNoContent)

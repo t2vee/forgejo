@@ -302,7 +302,7 @@ func GetQuotaGroup(ctx *context.APIContext) {
 
 // AddRuleToQuotaGroup adds a rule to a quota group
 func AddRuleToQuotaGroup(ctx *context.APIContext) {
-	// swagger:operation POST /admin/quota/groups/{quotagroup}/rules admin adminAddRuleToQuotaGroup
+	// swagger:operation PUT /admin/quota/groups/{quotagroup}/rules/{quotarule} admin adminAddRuleToQuotaGroup
 	// ---
 	// summary: Adds a rule to a quota group
 	// produces:
@@ -313,14 +313,13 @@ func AddRuleToQuotaGroup(ctx *context.APIContext) {
 	//   description: quota group to add a rule to
 	//   type: string
 	//   required: true
-	// - name: name
-	//   in: body
+	// - name: quotarule
+	//   in: path
 	//   description: the name of the quota rule to add to the group
-	//   schema:
-	//     "$ref": "#/definitions/AddRuleToQuotaGroupOptions"
+	//   type: string
 	//   required: true
 	// responses:
-	//   "201":
+	//   "204":
 	//     "$ref": "#/responses/empty"
 	//   "400":
 	//     "$ref": "#/responses/error"
@@ -333,20 +332,18 @@ func AddRuleToQuotaGroup(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	form := web.GetForm(ctx).(*api.AddRuleToQuotaGroupOptions)
-
-	err := ctx.QuotaGroup.AddRuleByName(ctx, form.Name)
+	err := ctx.QuotaGroup.AddRuleByName(ctx, ctx.QuotaRule.Name)
 	if err != nil {
 		if quota_model.IsErrRuleAlreadyInGroup(err) {
 			ctx.Error(http.StatusConflict, "", err)
 		} else if quota_model.IsErrRuleNotFound(err) {
 			ctx.Error(http.StatusUnprocessableEntity, "", err)
 		} else {
-			ctx.Error(http.StatusInternalServerError, "quota_model.group.AddFormByName", err)
+			ctx.Error(http.StatusInternalServerError, "quota_model.group.AddRuleByName", err)
 		}
 		return
 	}
-	ctx.Status(http.StatusCreated)
+	ctx.Status(http.StatusNoContent)
 }
 
 // RemoveRuleFromQuotaGroup removes a rule from a quota group
