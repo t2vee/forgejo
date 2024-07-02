@@ -443,9 +443,16 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
-		// TODO
 		t.Run("diffpatch", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestWithJSON(t, "PUT", env.APIPathForRepo("/contents/README.md"), api.UpdateFileOptions{
+				ContentBase64: base64.StdEncoding.EncodeToString([]byte("hello world")),
+				DeleteFileOptions: api.DeleteFileOptions{
+					SHA: "c0ffeebabe",
+				},
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 		})
 
 		// TODO
