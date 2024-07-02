@@ -11,6 +11,13 @@ import (
 	"code.gitea.io/gitea/modules/base"
 )
 
+type QuotaTargetType int
+
+const (
+	QuotaTargetUser QuotaTargetType = iota
+	QuotaTargetRepo
+)
+
 // QuotaGroupAssignmentAPI returns a middleware to handle context-quota-group assignment for api routes
 func QuotaGroupAssignmentAPI() func(ctx *APIContext) {
 	return func(ctx *APIContext) {
@@ -87,9 +94,16 @@ func (ctx *APIContext) QuotaExceeded() {
 	})
 }
 
-func EnforceQuotaAPI(subject quota_model.LimitSubject) func(ctx *APIContext) {
+func EnforceQuotaAPI(subject quota_model.LimitSubject, target QuotaTargetType) func(ctx *APIContext) {
 	return func(ctx *APIContext) {
-		ok, err := quota_model.EvaluateForUser(ctx, ctx.Doer.ID, subject)
+		var userID int64
+		switch target {
+		case QuotaTargetUser:
+			userID = ctx.Doer.ID
+		case QuotaTargetRepo:
+			userID = ctx.Repo.Owner.ID
+		}
+		ok, err := quota_model.EvaluateForUser(ctx, userID, subject)
 		if err != nil {
 			ctx.InternalServerError(err)
 			return

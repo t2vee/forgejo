@@ -71,7 +71,7 @@ func (e *quotaEnv) SetupWithSingleQuotaRule(t *testing.T) {
 	e.cleanups = append(e.cleanups, cleaner)
 
 	// Create a single all-encompassing rule
-	unlimited := int64(0)
+	unlimited := int64(-1)
 	ruleAll := api.CreateQuotaRuleOptions{
 		Name:     "all",
 		Limit:    &unlimited,
@@ -236,6 +236,42 @@ func TestAPIQuotaUserCleanSlate(t *testing.T) {
 func TestAPIQuotaEnforcement(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
 		testAPIQuotaEnforcement(t)
+	})
+}
+
+func TestAPIQuotaCountsTowardsCorrectUser(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := prepareQuotaEnv(t, "quota-correct-user-test")
+		defer env.Cleanup()
+		env.SetupWithSingleQuotaRule(t)
+
+		// Create a new group, with size:all set to 0
+		defer createQuotaGroup(t, "limited")()
+		zero := int64(0)
+		defer createQuotaRule(t, api.CreateQuotaRuleOptions{
+			Name:     "limited",
+			Limit:    &zero,
+			Subjects: []string{"size:all"},
+		})()
+		defer env.AddRuleToGroup(t, "limited", "limited")()
+
+		// Add the admin user to it
+		defer env.AddUserToGroup(t, "limited", env.Admin.User.Name)()
+
+		// Add the admin user as collaborator to our repo
+		perm := "admin"
+		req := NewRequestWithJSON(t, "PUT",
+			env.APIPathForRepo("/collaborators/%s", env.Admin.User.Name),
+			api.AddCollaboratorOption{
+				Permission: &perm,
+			}).AddTokenAuth(env.User.Token)
+		env.User.Session.MakeRequest(t, req, http.StatusNoContent)
+
+		// Now, try to push something as admin!
+		req = NewRequestWithJSON(t, "POST", env.APIPathForRepo("/branches"), api.CreateBranchRepoOption{
+			BranchName: "admin-branch",
+		}).AddTokenAuth(env.Admin.Token)
+		env.Admin.Session.MakeRequest(t, req, http.StatusCreated)
 	})
 }
 

@@ -146,7 +146,7 @@ func (ctx *preReceiveContext) assertQuota() bool {
 		return false
 	}
 
-	ok, err := quota_model.EvaluateForUser(ctx, ctx.user.ID, quota_model.LimitSubjectSizeReposAll)
+	ok, err := quota_model.EvaluateForUser(ctx, ctx.PrivateContext.Repo.Repository.OwnerID, quota_model.LimitSubjectSizeReposAll)
 	if err != nil {
 		log.Error("quota_model.EvaluateForUser: %v", err)
 		ctx.JSON(http.StatusInternalServerError, private.Response{
