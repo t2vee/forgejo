@@ -76,7 +76,7 @@ func ListRules(ctx context.Context) ([]Rule, error) {
 
 func doesRuleExist(ctx context.Context, name string) (bool, error) {
 	return db.GetEngine(ctx).
-		Where("name == ?", name).
+		Where("name = ?", name).
 		Get(&Rule{})
 }
 
