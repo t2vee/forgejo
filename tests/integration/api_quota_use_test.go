@@ -42,13 +42,18 @@ type quotaEnv struct {
 }
 
 func (e *quotaEnv) APIPathForRepo(uri string) string {
-	return fmt.Sprintf("/api/v1/repos/%s/%s/%s", e.User.User.Name, e.Repo.Name, uri)
+	return fmt.Sprintf("/api/v1/repos/%s/%s%s", e.User.User.Name, e.Repo.Name, uri)
 }
 
 func (e *quotaEnv) Cleanup() {
 	for i := len(e.cleanups) - 1; i >= 0; i-- {
 		e.cleanups[i]()
 	}
+}
+
+func (e *quotaEnv) WithoutQuota(t *testing.T, task func()) {
+	defer e.SetRuleLimit(t, "all", -1)()
+	task()
 }
 
 func (e *quotaEnv) SetupWithSingleQuotaRule(t *testing.T) {
@@ -245,7 +250,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
 			req := NewRequestWithJSON(t, "POST", "/api/v1/user/repos", api.CreateRepoOption{
-				Name: "quota-exceeded",
+				Name:     "quota-exceeded",
 				AutoInit: true,
 			}).AddTokenAuth(env.User.Token)
 			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
@@ -259,52 +264,102 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		})
 	})
 
+	// TODO
 	t.Run("#/orgs/{org}/repos", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		t.Run("LIST", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 		})
+
 		t.Run("CREATE", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 		})
 	})
 
+	// TODO
 	t.Run("#/repos/migrate", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 	})
 
+	// TODO
 	t.Run("#/repos/{template_owner}/{template_repo}/generate", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 	})
 
 	t.Run("#/repos/{username}/{reponame}", func(t *testing.T) {
+		// Lets create a new repo to play with.
+		repo, _, repoCleanup := CreateDeclarativeRepoWithOptions(t, env.User.User, DeclarativeRepoOptions{})
+		defer repoCleanup()
+
+		// Drop the quota to 0
+		defer env.SetRuleLimit(t, "all", 0)()
+
 		t.Run("GET", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-		})
-		t.Run("DELETE", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestf(t, "GET", "/api/v1/repos/%s/%s", env.User.User.Name, repo.Name).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusOK)
 		})
 		t.Run("PATCH", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+
+			desc := "Some description"
+			req := NewRequestWithJSON(t, "PATCH", fmt.Sprintf("/api/v1/repos/%s/%s", env.User.User.Name, repo.Name), api.EditRepoOption{
+				Description: &desc,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusOK)
+		})
+		t.Run("DELETE", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestf(t, "DELETE", "/api/v1/repos/%s/%s", env.User.User.Name, repo.Name).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 		})
 
 		t.Run("branches", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
+			// Create a branch we can delete later
+			env.WithoutQuota(t, func() {
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/branches"), api.CreateBranchRepoOption{
+					BranchName: "to-delete",
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusCreated)
+			})
+
 			t.Run("LIST", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "GET", env.APIPathForRepo("/branches")).
+					AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusOK)
 			})
 			t.Run("CREATE", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/branches"), api.CreateBranchRepoOption{
+					BranchName: "quota-exceeded",
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 			})
 
 			t.Run("{branch}", func(t *testing.T) {
 				t.Run("GET", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/branches/to-delete")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("DELETE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "DELETE", env.APIPathForRepo("/branches/to-delete")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 				})
 			})
 		})
@@ -312,33 +367,88 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		t.Run("contents", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
+			var fileSha string
+
+			// Create a file to play with
+			env.WithoutQuota(t, func() {
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/contents/plaything.txt"), api.CreateFileOptions{
+					ContentBase64: base64.StdEncoding.EncodeToString([]byte("hello world")),
+				}).AddTokenAuth(env.User.Token)
+				resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+				var r api.FileResponse
+				DecodeJSON(t, resp, &r)
+
+				fileSha = r.Content.SHA
+			})
+
 			t.Run("LIST", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "GET", env.APIPathForRepo("/contents")).
+					AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusOK)
 			})
 			t.Run("CREATE", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/contents"), api.ChangeFilesOptions{
+					Files: []*api.ChangeFileOperation{
+						{
+							Operation: "create",
+							Path:      "quota-exceeded.txt",
+						},
+					},
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 			})
 
 			t.Run("{filepath}", func(t *testing.T) {
 				t.Run("GET", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/contents/plaything.txt")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("CREATE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/contents/plaything.txt"), api.CreateFileOptions{
+						ContentBase64: base64.StdEncoding.EncodeToString([]byte("hello world")),
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 				})
 				t.Run("UPDATE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "PUT", env.APIPathForRepo("/contents/plaything.txt"), api.UpdateFileOptions{
+						ContentBase64: base64.StdEncoding.EncodeToString([]byte("hello world")),
+						DeleteFileOptions: api.DeleteFileOptions{
+							SHA: fileSha,
+						},
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 				})
 				t.Run("DELETE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					// Deleting a file fails, because it creates a new commit,
+					// which would increase the quota use.
+					req := NewRequestWithJSON(t, "DELETE", env.APIPathForRepo("/contents/plaything.txt"), api.DeleteFileOptions{
+						SHA: fileSha,
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 				})
 			})
 		})
 
+		// TODO
 		t.Run("diffpatch", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 		})
 
+		// TODO
 		t.Run("forks", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -350,10 +460,12 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
+		// TODO
 		t.Run("mirror-sync", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 		})
 
+		// TODO
 		t.Run("issues", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -408,6 +520,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
+		// TODO
 		t.Run("pulls", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -439,6 +552,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
+		// TODO
 		t.Run("push_mirrors", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -450,6 +564,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
+		// TODO
 		t.Run("releases", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -511,6 +626,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
+		// TODO
 		t.Run("tags", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -533,11 +649,13 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
+		// TODO
 		t.Run("transfer", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 		})
 	})
 
+	// TODO
 	t.Run("#/packages/{owner}/{type}/{name}/{version}", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
