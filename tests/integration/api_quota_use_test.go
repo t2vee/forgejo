@@ -212,6 +212,18 @@ func TestAPIQuotaUserExp(t *testing.T) {
 			DecodeJSON(t, resp, &q)
 
 			assert.Greater(t, q.Used.Size.Repos.Public, int64(0))
+
+			t.Run("admin view", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestf(t, "GET", "/api/v1/admin/users/%s/quota", env.User.User.Name).AddTokenAuth(env.Admin.Token)
+				resp := env.Admin.Session.MakeRequest(t, req, http.StatusOK)
+
+				var q api.QuotaInfoAdmin
+				DecodeJSON(t, resp, &q)
+
+				assert.Greater(t, q.Used.Size.Repos.Public, int64(0))
+			})
 		})
 
 		t.Run("quota check passing", func(t *testing.T) {

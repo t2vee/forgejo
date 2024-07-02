@@ -36,13 +36,13 @@ func GetUserQuota(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	used, err := quota_model.GetUsedForUser(ctx, ctx.Doer.ID)
+	used, err := quota_model.GetUsedForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "quota_model.GetUsedForUser", err)
 		return
 	}
 
-	groups, err := quota_model.GetGroupsForUser(ctx, ctx.Doer.ID)
+	groups, err := quota_model.GetGroupsForUser(ctx, ctx.ContextUser.ID)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "quota_model.GetGroupsForUser", err)
 		return
