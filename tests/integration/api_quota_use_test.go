@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	auth_model "code.gitea.io/gitea/models/auth"
@@ -41,8 +42,9 @@ type quotaEnv struct {
 	cleanups []func()
 }
 
-func (e *quotaEnv) APIPathForRepo(uri string) string {
-	return fmt.Sprintf("/api/v1/repos/%s/%s%s", e.User.User.Name, e.Repo.Name, uri)
+func (e *quotaEnv) APIPathForRepo(uriFormat string, a ...any) string {
+	path := fmt.Sprintf(uriFormat, a...)
+	return fmt.Sprintf("/api/v1/repos/%s/%s%s", e.User.User.Name, e.Repo.Name, path)
 }
 
 func (e *quotaEnv) Cleanup() {
@@ -559,86 +561,170 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
-		// TODO
-		t.Run("push_mirrors", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-
-			t.Run("LIST", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
-			})
-			t.Run("CREATE", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
-			})
-			t.Run("SYNC", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
-			})
-
-			t.Run("{name}", func(t *testing.T) {
-				t.Run("GET", func(t *testing.T) {
-					defer tests.PrintCurrentTest(t)()
-				})
-				t.Run("DELETE", func(t *testing.T) {
-					defer tests.PrintCurrentTest(t)()
-				})
-			})
-		})
-
-		// TODO
 		t.Run("releases", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
+			var releaseID int64
+
+			// Create a release so that there's something to play with.
+			env.WithoutQuota(t, func() {
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
+					TagName: "play-release-tag",
+					Title: "play-release",
+				}).AddTokenAuth(env.User.Token)
+				resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+				var q api.Release
+				DecodeJSON(t, resp, &q)
+
+				releaseID = q.ID
+			})
+
 			t.Run("LIST", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "GET", env.APIPathForRepo("/releases")).
+					AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusOK)
 			})
 			t.Run("CREATE", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
+					TagName: "play-release-tag-two",
+					Title: "play-release-two",
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 			})
 
 			t.Run("tags/{tag}", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
+				// Create a release for our subtests
+				env.WithoutQuota(t, func() {
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
+						TagName: "play-release-tag-subtest",
+						Title: "play-release-subtest",
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusCreated)
+				})
+
 				t.Run("GET", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/releases/tags/play-release-tag-subtest")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("DELETE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "DELETE", env.APIPathForRepo("/releases/tags/play-release-tag-subtest")).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 				})
 			})
 
 			t.Run("{id}", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
+				var tmpReleaseID int64
+
+				// Create a release so that there's something to play with.
+				env.WithoutQuota(t, func() {
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/releases"), api.CreateReleaseOption{
+						TagName: "tmp-tag",
+						Title: "tmp-release",
+					}).AddTokenAuth(env.User.Token)
+					resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+					var q api.Release
+					DecodeJSON(t, resp, &q)
+
+					tmpReleaseID = q.ID
+				})
+
 				t.Run("GET", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/releases/%d", tmpReleaseID)).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("UPDATE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "PATCH", env.APIPathForRepo("/releases/%d", tmpReleaseID), api.EditReleaseOption{
+						TagName: "tmp-tag-two",
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 				})
 				t.Run("DELETE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "DELETE", env.APIPathForRepo("/releases/%d", tmpReleaseID)).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 				})
 
 				t.Run("assets", func(t *testing.T) {
-					defer tests.PrintCurrentTest(t)()
-
 					t.Run("LIST", func(t *testing.T) {
 						defer tests.PrintCurrentTest(t)()
+
+						req := NewRequest(t, "GET", env.APIPathForRepo("/releases/%d/assets", releaseID)).
+							AddTokenAuth(env.User.Token)
+						env.User.Session.MakeRequest(t, req, http.StatusOK)
 					})
 					t.Run("CREATE", func(t *testing.T) {
 						defer tests.PrintCurrentTest(t)()
+
+						body := strings.NewReader("hello world")
+						req := NewRequestWithBody(t, "POST", env.APIPathForRepo("/releases/%d/assets?name=bar.txt", releaseID), body).
+							AddTokenAuth(env.User.Token)
+						req.Header.Add("Content-Type", "text/plain")
+						env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 					})
 
 					t.Run("{attachment_id}", func(t *testing.T) {
 						defer tests.PrintCurrentTest(t)()
 
+						var attachmentID int64
+
+						// Create an attachment to play with
+						env.WithoutQuota(t, func() {
+							body := strings.NewReader("hello world")
+							req := NewRequestWithBody(t, "POST", env.APIPathForRepo("/releases/%d/assets?name=foo.txt", releaseID), body).
+								AddTokenAuth(env.User.Token)
+							req.Header.Add("Content-Type", "text/plain")
+							resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+							var q api.Attachment
+							DecodeJSON(t, resp, &q)
+
+							attachmentID = q.ID
+						})
+
 						t.Run("GET", func(t *testing.T) {
 							defer tests.PrintCurrentTest(t)()
+
+							req := NewRequest(t, "GET", env.APIPathForRepo("/releases/%d/assets/%d", releaseID, attachmentID)).
+								AddTokenAuth(env.User.Token)
+							env.User.Session.MakeRequest(t, req, http.StatusOK)
 						})
 						t.Run("UPDATE", func(t *testing.T) {
 							defer tests.PrintCurrentTest(t)()
+
+							req := NewRequestWithJSON(t, "PATCH", env.APIPathForRepo("/releases/%d/assets/%d", releaseID, attachmentID), api.EditAttachmentOptions{
+								Name: "new-name.txt",
+							}).AddTokenAuth(env.User.Token)
+							env.User.Session.MakeRequest(t, req, http.StatusCreated)
 						})
 						t.Run("DELETE", func(t *testing.T) {
 							defer tests.PrintCurrentTest(t)()
+
+							req := NewRequest(t, "DELETE", env.APIPathForRepo("/releases/%d/assets/%d", releaseID, attachmentID)).
+								AddTokenAuth(env.User.Token)
+							env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 						})
 					})
 				})
