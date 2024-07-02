@@ -40,7 +40,7 @@ func (r Rule) Evaluate(used Used, forSubject LimitSubject) (bool, bool) {
 	return sum <= r.Limit, true
 }
 
-func (r *Rule) Edit(ctx context.Context, limit *int64, subjects *LimitSubjects) error {
+func (r *Rule) Edit(ctx context.Context, limit *int64, subjects *LimitSubjects) (*Rule, error) {
 	cols := []string{}
 
 	if limit != nil {
@@ -53,7 +53,7 @@ func (r *Rule) Edit(ctx context.Context, limit *int64, subjects *LimitSubjects) 
 	}
 
 	_, err := db.GetEngine(ctx).Where("name = ?", r.Name).Cols(cols...).Update(r)
-	return err
+	return r, err
 }
 
 func GetRuleByName(ctx context.Context, name string) (*Rule, error) {

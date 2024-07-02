@@ -125,7 +125,7 @@ func (e *quotaEnv) SetRuleLimit(t *testing.T, rule string, limit int64) func() {
 	req := NewRequestWithJSON(t, "PATCH", fmt.Sprintf("/api/v1/admin/quota/rules/%s", rule), api.EditQuotaRuleOptions{
 		Limit: &limit,
 	}).AddTokenAuth(e.Admin.Token)
-	e.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
+	e.Admin.Session.MakeRequest(t, req, http.StatusOK)
 
 	return func() {
 		e.SetRuleLimit(t, rule, originalRule.Limit)

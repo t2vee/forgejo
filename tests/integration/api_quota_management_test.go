@@ -279,7 +279,11 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		req := NewRequestWithJSON(t, "PATCH", "/api/v1/admin/quota/rules/deny-all", api.EditQuotaRuleOptions{
 			Limit: &oneKb,
 		}).AddTokenAuth(adminToken)
-		adminSession.MakeRequest(t, req, http.StatusNoContent)
+		resp := adminSession.MakeRequest(t, req, http.StatusOK)
+
+		var q api.QuotaRuleInfo
+		DecodeJSON(t, resp, &q)
+		assert.EqualValues(t, 1024, q.Limit)
 
 		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
 		assert.NoError(t, err)
@@ -289,7 +293,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
 			req := NewRequestWithJSON(t, "PATCH", "/api/v1/admin/quota/rules/deny-all", nil).AddTokenAuth(adminToken)
-			adminSession.MakeRequest(t, req, http.StatusNoContent)
+			adminSession.MakeRequest(t, req, http.StatusOK)
 		})
 
 		t.Run("unhappy path", func(t *testing.T) {

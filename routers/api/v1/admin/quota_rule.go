@@ -141,8 +141,8 @@ func EditQuotaRule(ctx *context.APIContext) {
 	//     "$ref": "#/definitions/EditQuotaRuleOptions"
 	//   required: true
 	// responses:
-	//   "204":
-	//     "$ref": "#/responses/empty"
+	//   "200":
+	//     "$ref": "#/responses/QuotaRuleInfo"
 	//   "400":
 	//     "$ref": "#/responses/error"
 	//   "403":
@@ -168,12 +168,13 @@ func EditQuotaRule(ctx *context.APIContext) {
 		subjects = &subjs
 	}
 
-	err := ctx.QuotaRule.Edit(ctx, form.Limit, subjects)
+	rule, err := ctx.QuotaRule.Edit(ctx, form.Limit, subjects)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "quota_model.rule.Edit", err)
 		return
 	}
-	ctx.Status(http.StatusNoContent)
+
+	ctx.JSON(http.StatusOK, convert.ToQuotaRuleInfo(*rule, true))
 }
 
 // DeleteQuotaRule deletes a quota rule
