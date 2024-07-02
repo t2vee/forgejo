@@ -65,7 +65,7 @@ func (subjects LimitSubjects) GoString() string {
 func ParseLimitSubject(repr string) (LimitSubject, error) {
 	result, has := limitSubjectRepr[repr]
 	if !has {
-		return LimitSubjectNone, fmt.Errorf("unrecognized limit subject: %s", repr)
+		return LimitSubjectNone, ErrParseLimitSubjectUnrecognized{Subject: repr}
 	}
 	return result, nil
 }

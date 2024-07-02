@@ -4,8 +4,10 @@
 package admin
 
 import (
+	go_context "context"
 	"net/http"
 
+	"code.gitea.io/gitea/models/db"
 	quota_model "code.gitea.io/gitea/models/quota"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/web"
@@ -41,6 +43,51 @@ func ListQuotaGroups(ctx *context.APIContext) {
 	ctx.JSON(http.StatusOK, convert.ToQuotaGroupList(groups))
 }
 
+func createQuotaGroupWithRules(ctx go_context.Context, opts *api.CreateQuotaGroupOptions) (*quota_model.Group, error) {
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer committer.Close()
+
+	group, err := quota_model.CreateGroup(ctx, opts.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rule := range opts.Rules {
+		exists, err := quota_model.DoesRuleExist(ctx, rule.Name)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			var limit int64
+			if rule.Limit != nil {
+				limit = *rule.Limit
+			}
+
+			subjects, err := toLimitSubjects(rule.Subjects)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = quota_model.CreateRule(ctx, rule.Name, limit, *subjects)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err = group.AddRuleByName(ctx, rule.Name); err != nil {
+			return nil, err
+		}
+	}
+
+	if err = group.LoadRules(ctx); err != nil {
+		return nil, err
+	}
+
+	return group, committer.Commit()
+}
+
 // CreateQuotaGroup creates a new quota group
 func CreateQuotaGroup(ctx *context.APIContext) {
 	// swagger:operation POST /admin/quota/groups admin adminCreateQuotaGroup
@@ -69,10 +116,12 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.CreateQuotaGroupOptions)
 
-	group, err := quota_model.CreateGroup(ctx, form.Name)
+	group, err := createQuotaGroupWithRules(ctx, form)
 	if err != nil {
 		if quota_model.IsErrGroupAlreadyExists(err) {
 			ctx.Error(http.StatusConflict, "", err)
+		} else if quota_model.IsErrParseLimitSubjectUnrecognized(err) {
+			ctx.Error(http.StatusUnprocessableEntity, "", err)
 		} else {
 			ctx.Error(http.StatusInternalServerError, "quota_model.CreateGroup", err)
 		}

@@ -14,6 +14,19 @@ import (
 	"code.gitea.io/gitea/services/convert"
 )
 
+func toLimitSubjects(subjStrings []string) (*quota_model.LimitSubjects, error) {
+	subjects := make(quota_model.LimitSubjects, len(subjStrings))
+	for i := range len(subjStrings) {
+		subj, err := quota_model.ParseLimitSubject(subjStrings[i])
+		if err != nil {
+			return nil, err
+		}
+		subjects[i] = subj
+	}
+
+	return &subjects, nil
+}
+
 // ListQuotaRules lists all the quota rules
 func ListQuotaRules(ctx *context.APIContext) {
 	// swagger:operation GET /admin/quota/rules admin adminListQuotaRules
@@ -74,17 +87,13 @@ func CreateQuotaRule(ctx *context.APIContext) {
 		return
 	}
 
-	subjects := make(quota_model.LimitSubjects, len(form.Subjects))
-	for i := range len(form.Subjects) {
-		subj, err := quota_model.ParseLimitSubject(form.Subjects[i])
-		if err != nil {
-			ctx.Error(http.StatusUnprocessableEntity, "quota_model.ParseLimitSubject", err)
-			return
-		}
-		subjects[i] = subj
+	subjects, err := toLimitSubjects(form.Subjects)
+	if err != nil {
+		ctx.Error(http.StatusUnprocessableEntity, "quota_model.ParseLimitSubject", err)
+		return
 	}
 
-	rule, err := quota_model.CreateRule(ctx, form.Name, *form.Limit, subjects)
+	rule, err := quota_model.CreateRule(ctx, form.Name, *form.Limit, *subjects)
 	if err != nil {
 		if quota_model.IsErrRuleAlreadyExists(err) {
 			ctx.Error(http.StatusConflict, "", err)

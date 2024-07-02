@@ -132,7 +132,7 @@ func (g *Group) AddRuleByName(ctx context.Context, ruleName string) error {
 	}
 	defer committer.Close()
 
-	exists, err := doesRuleExist(ctx, ruleName)
+	exists, err := DoesRuleExist(ctx, ruleName)
 	if err != nil {
 		return err
 	} else if !exists {

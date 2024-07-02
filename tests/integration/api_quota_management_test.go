@@ -58,6 +58,102 @@ func apiCreateUser(t *testing.T, username string) func() {
 	}
 }
 
+func TestAPIQuotaCreateGroupWithRules(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
+	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+
+	// Create two rules in advance
+	unlimited := int64(-1)
+	defer createQuotaRule(t, api.CreateQuotaRuleOptions{
+		Name:     "unlimited",
+		Limit:    &unlimited,
+		Subjects: []string{"size:all"},
+	})()
+	zero := int64(0)
+	defer createQuotaRule(t, api.CreateQuotaRuleOptions{
+		Name:     "deny-git-lfs",
+		Limit:    &zero,
+		Subjects: []string{"size:git:lfs"},
+	})()
+
+	// Log in as admin
+	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{IsAdmin: true})
+	adminSession := loginUser(t, admin.Name)
+	adminToken := getTokenForLoggedInUser(t, adminSession, auth_model.AccessTokenScopeAll)
+
+	// Create a new group, with rules specified
+	req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups", api.CreateQuotaGroupOptions{
+		Name: "group-with-rules",
+		Rules: []api.CreateQuotaRuleOptions{
+			// First: an existing group, unlimited, name only
+			{
+				Name: "unlimited",
+			},
+			// Second: an existing group, deny-git-lfs, with different params
+			{
+				Name:  "deny-git-lfs",
+				Limit: &unlimited,
+			},
+			// Third: an entirely new group
+			{
+				Name:     "new-rule",
+				Subjects: []string{"size:assets:all"},
+			},
+		},
+	}).AddTokenAuth(adminToken)
+	resp := adminSession.MakeRequest(t, req, http.StatusCreated)
+	defer func() {
+		req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/group-with-rules").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+
+		req = NewRequest(t, "DELETE", "/api/v1/admin/quota/rules/new-rule").AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusNoContent)
+	}()
+
+	// Verify that we created a group with rules included
+	var q api.QuotaGroup
+	DecodeJSON(t, resp, &q)
+
+	assert.Equal(t, "group-with-rules", q.Name)
+	assert.Len(t, q.Rules, 3)
+
+	// Verify that the previously existing rules are unchanged
+	rule, err := quota_model.GetRuleByName(db.DefaultContext, "unlimited")
+	assert.NoError(t, err)
+	assert.NotNil(t, rule)
+	assert.EqualValues(t, -1, rule.Limit)
+	assert.EqualValues(t, quota_model.LimitSubjects{quota_model.LimitSubjectSizeAll}, rule.Subjects)
+
+	rule, err = quota_model.GetRuleByName(db.DefaultContext, "deny-git-lfs")
+	assert.NoError(t, err)
+	assert.NotNil(t, rule)
+	assert.EqualValues(t, 0, rule.Limit)
+	assert.EqualValues(t, quota_model.LimitSubjects{quota_model.LimitSubjectSizeGitLFS}, rule.Subjects)
+
+	// Verify that the new rule was also created
+	rule, err = quota_model.GetRuleByName(db.DefaultContext, "new-rule")
+	assert.NoError(t, err)
+	assert.NotNil(t, rule)
+	assert.EqualValues(t, 0, rule.Limit)
+	assert.EqualValues(t, quota_model.LimitSubjects{quota_model.LimitSubjectSizeAssetsAll}, rule.Subjects)
+
+	t.Run("invalid rule spec", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups", api.CreateQuotaGroupOptions{
+			Name: "group-with-invalid-rule-spec",
+			Rules: []api.CreateQuotaRuleOptions{
+				{
+					Name:     "rule-with-wrong-spec",
+					Subjects: []string{"valid:false"},
+				},
+			},
+		}).AddTokenAuth(adminToken)
+		adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+	})
+}
+
 func TestAPIQuotaEmptyState(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()

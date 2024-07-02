@@ -74,7 +74,7 @@ func ListRules(ctx context.Context) ([]Rule, error) {
 	return rules, err
 }
 
-func doesRuleExist(ctx context.Context, name string) (bool, error) {
+func DoesRuleExist(ctx context.Context, name string) (bool, error) {
 	return db.GetEngine(ctx).
 		Where("name = ?", name).
 		Get(&Rule{})
@@ -87,7 +87,7 @@ func CreateRule(ctx context.Context, name string, limit int64, subjects LimitSub
 	}
 	defer committer.Close()
 
-	exists, err := doesRuleExist(ctx, name)
+	exists, err := DoesRuleExist(ctx, name)
 	if err != nil {
 		return nil, err
 	} else if exists {

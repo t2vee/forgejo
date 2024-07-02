@@ -115,5 +115,18 @@ func (err ErrRuleNotInGroup) Error() string {
 	return fmt.Sprintf("rule not in group: [group: %s, rule: %s]", err.GroupName, err.RuleName)
 }
 
+type ErrParseLimitSubjectUnrecognized struct {
+	Subject string
+}
+
+func IsErrParseLimitSubjectUnrecognized(err error) bool {
+	_, ok := err.(ErrParseLimitSubjectUnrecognized)
+	return ok
+}
+
+func (err ErrParseLimitSubjectUnrecognized) Error() string {
+	return fmt.Sprintf("unrecognized quota limit subject: [subject: %s]", err.Subject)
+}
+
 // I am glad you read this far, but you now feel a pair of eyes watching you.
 // Told you so.

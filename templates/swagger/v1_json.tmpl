@@ -21277,6 +21277,14 @@
           "description": "Name of the quota group to create",
           "type": "string",
           "x-go-name": "Name"
+        },
+        "rules": {
+          "description": "Rules to add to the newly created group.\nIf a rule does not exist, it will be created.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CreateQuotaRuleOptions"
+          },
+          "x-go-name": "Rules"
         }
       },
       "x-go-package": "code.gitea.io/gitea/modules/structs"

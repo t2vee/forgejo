@@ -88,6 +88,9 @@ type QuotaGroup struct {
 type CreateQuotaGroupOptions struct {
 	// Name of the quota group to create
 	Name string `json:"name" binding:"Required"`
+	// Rules to add to the newly created group.
+	// If a rule does not exist, it will be created.
+	Rules []CreateQuotaRuleOptions `json:"rules"`
 }
 
 // CreateQuotaRuleOptions represents the options for creating a quota rule
