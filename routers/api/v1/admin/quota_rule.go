@@ -62,6 +62,8 @@ func CreateQuotaRule(ctx *context.APIContext) {
 	//     "$ref": "#/responses/error"
 	//   "403":
 	//     "$ref": "#/responses/forbidden"
+	//   "409":
+	//     "$ref": "#/responses/error"
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
@@ -84,7 +86,11 @@ func CreateQuotaRule(ctx *context.APIContext) {
 
 	err := quota_model.CreateRule(ctx, form.Name, *form.Limit, subjects)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_model.CreateRule", err)
+		if quota_model.IsErrRuleAlreadyExists(err) {
+			ctx.Error(http.StatusConflict, "", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_model.CreateRule", err)
+		}
 		return
 	}
 	ctx.Status(http.StatusCreated)

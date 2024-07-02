@@ -63,6 +63,8 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 	//     "$ref": "#/responses/error"
 	//   "403":
 	//     "$ref": "#/responses/forbidden"
+	//   "409":
+	//     "$ref": "#/responses/error"
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
@@ -70,7 +72,11 @@ func CreateQuotaGroup(ctx *context.APIContext) {
 
 	err := quota_model.CreateGroup(ctx, form.Name)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_model.CreateGroup", err)
+		if quota_model.IsErrGroupAlreadyExists(err) {
+			ctx.Error(http.StatusConflict, "", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_model.CreateGroup", err)
+		}
 		return
 	}
 	ctx.Status(http.StatusCreated)
@@ -135,6 +141,10 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
+	//   "409":
+	//     "$ref": "#/responses/error"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
 
 	form := web.GetForm(ctx).(*api.QuotaGroupAddOrRemoveUserOption)
 
@@ -150,7 +160,11 @@ func AddUserToQuotaGroup(ctx *context.APIContext) {
 
 	err = ctx.QuotaGroup.AddUserByID(ctx, user.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_group.group.AddUserByID", err)
+		if quota_model.IsErrUserAlreadyInGroup(err) {
+			ctx.Error(http.StatusConflict, "", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_group.group.AddUserByID", err)
+		}
 		return
 	}
 	ctx.Status(http.StatusCreated)
@@ -202,7 +216,11 @@ func RemoveUserFromQuotaGroup(ctx *context.APIContext) {
 
 	err = ctx.QuotaGroup.RemoveUserByID(ctx, user.ID)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_model.group.RemoveUserByID", err)
+		if quota_model.IsErrUserNotInGroup(err) {
+			ctx.NotFound()
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_model.group.RemoveUserByID", err)
+		}
 		return
 	}
 	ctx.Status(http.StatusNoContent)
@@ -236,12 +254,19 @@ func SetUserQuotaGroups(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
 
 	form := web.GetForm(ctx).(*api.SetUserQuotaGroupsOptions)
 
 	err := quota_model.SetUserGroups(ctx, ctx.ContextUser.ID, form.Groups)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_model.SetUserGroups", err)
+		if quota_model.IsErrGroupNotFound(err) {
+			ctx.Error(http.StatusUnprocessableEntity, "", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_model.SetUserGroups", err)
+		}
+		return
 	}
 
 	ctx.Status(http.StatusNoContent)
@@ -333,12 +358,22 @@ func AddRuleToQuotaGroup(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
+	//   "409":
+	//     "$ref": "#/responses/error"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
 
 	form := web.GetForm(ctx).(*api.AddRuleToQuotaGroupOptions)
 
 	err := ctx.QuotaGroup.AddRuleByName(ctx, form.Name)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_model.group.AddFormByName", err)
+		if quota_model.IsErrRuleAlreadyInGroup(err) {
+			ctx.Error(http.StatusConflict, "", err)
+		} else if quota_model.IsErrRuleNotFound(err) {
+			ctx.Error(http.StatusUnprocessableEntity, "", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_model.group.AddFormByName", err)
+		}
 		return
 	}
 	ctx.Status(http.StatusCreated)
@@ -374,7 +409,11 @@ func RemoveRuleFromQuotaGroup(ctx *context.APIContext) {
 
 	err := ctx.QuotaGroup.RemoveRuleByName(ctx, ctx.QuotaRule.Name)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "quota_model.group.RemoveRuleByName", err)
+		if quota_model.IsErrRuleNotInGroup(err) {
+			ctx.NotFound()
+		} else {
+			ctx.Error(http.StatusInternalServerError, "quota_model.group.RemoveRuleByName", err)
+		}
 		return
 	}
 	ctx.Status(http.StatusNoContent)

@@ -7,7 +7,6 @@ package quota
 
 import (
 	"context"
-	"fmt"
 
 	"code.gitea.io/gitea/models/db"
 	user_model "code.gitea.io/gitea/models/user"
@@ -64,38 +63,121 @@ func (g *Group) LoadRules(ctx context.Context) error {
 		Find(&g.Rules)
 }
 
+func (g *Group) isUserInGroup(ctx context.Context, userID int64) (bool, error) {
+	return db.GetEngine(ctx).
+		Where("kind = ? AND mapped_id = ? AND group_name = ?", KindUser, userID, g.Name).
+		Get(&GroupMapping{})
+}
+
 func (g *Group) AddUserByID(ctx context.Context, userID int64) error {
-	_, err := db.GetEngine(ctx).Insert(&GroupMapping{
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	exists, err := g.isUserInGroup(ctx, userID)
+	if err != nil {
+		return err
+	} else if exists {
+		return ErrUserAlreadyInGroup{GroupName: g.Name, UserID: userID}
+	}
+
+	_, err = db.GetEngine(ctx).Insert(&GroupMapping{
 		Kind:      KindUser,
 		MappedID:  userID,
 		GroupName: g.Name,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
 }
 
 func (g *Group) RemoveUserByID(ctx context.Context, userID int64) error {
-	_, err := db.GetEngine(ctx).Delete(&GroupMapping{
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	exists, err := g.isUserInGroup(ctx, userID)
+	if err != nil {
+		return err
+	} else if !exists {
+		return ErrUserNotInGroup{GroupName: g.Name, UserID: userID}
+	}
+
+	_, err = db.GetEngine(ctx).Delete(&GroupMapping{
 		Kind:      KindUser,
 		MappedID:  userID,
 		GroupName: g.Name,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
+}
+
+func (g *Group) isRuleInGroup(ctx context.Context, ruleName string) (bool, error) {
+	return db.GetEngine(ctx).
+		Where("group_name = ? AND rule_name = ?", g.Name, ruleName).
+		Get(&GroupRuleMapping{})
 }
 
 func (g *Group) AddRuleByName(ctx context.Context, ruleName string) error {
-	_, err := db.GetEngine(ctx).Insert(&GroupRuleMapping{
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	exists, err := doesRuleExist(ctx, ruleName)
+	if err != nil {
+		return err
+	} else if !exists {
+		return ErrRuleNotFound{Name: ruleName}
+	}
+
+	has, err := g.isRuleInGroup(ctx, ruleName)
+	if err != nil {
+		return err
+	} else if has {
+		return ErrRuleAlreadyInGroup{GroupName: g.Name, RuleName: ruleName}
+	}
+
+	_, err = db.GetEngine(ctx).Insert(&GroupRuleMapping{
 		GroupName: g.Name,
 		RuleName:  ruleName,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
 }
 
 func (g *Group) RemoveRuleByName(ctx context.Context, ruleName string) error {
-	_, err := db.GetEngine(ctx).Delete(&GroupRuleMapping{
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	exists, err := g.isRuleInGroup(ctx, ruleName)
+	if err != nil {
+		return err
+	} else if !exists {
+		return ErrRuleNotInGroup{GroupName: g.Name, RuleName: ruleName}
+	}
+
+	_, err = db.GetEngine(ctx).Delete(&GroupRuleMapping{
 		GroupName: g.Name,
 		RuleName:  ruleName,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
 }
 
 var affectsMap = map[LimitSubject]LimitSubjects{
@@ -182,9 +264,29 @@ func ListGroups(ctx context.Context) (GroupList, error) {
 	return groups, err
 }
 
+func doesGroupExist(ctx context.Context, name string) (bool, error) {
+	return db.GetEngine(ctx).Where("name = ?", name).Get(&Group{})
+}
+
 func CreateGroup(ctx context.Context, name string) error {
-	_, err := db.GetEngine(ctx).Insert(Group{Name: name})
-	return err
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	exists, err := doesGroupExist(ctx, name)
+	if err != nil {
+		return err
+	} else if exists {
+		return ErrGroupAlreadyExists{Name: name}
+	}
+
+	_, err = db.GetEngine(ctx).Insert(Group{Name: name})
+	if err != nil {
+		return err
+	}
+	return committer.Commit()
 }
 
 func ListUsersInGroup(ctx context.Context, name string) ([]*user_model.User, error) {
@@ -253,7 +355,7 @@ func SetUserGroups(ctx context.Context, userID int64, groups *[]string) error {
 			return err
 		}
 		if group == nil {
-			return fmt.Errorf("quota group does not exist: %s", groupName)
+			return ErrGroupNotFound{Name: groupName}
 		}
 		err = group.AddUserByID(ctx, userID)
 		if err != nil {

@@ -193,6 +193,40 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
 		assert.NoError(t, err)
 		assert.EqualValues(t, 0, rule.Limit)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("missing options", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", nil).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+
+			t.Run("invalid subjects", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", api.CreateQuotaRuleOptions{
+					Name:     "invalid-subjects",
+					Limit:    &zero,
+					Subjects: []string{"valid:false"},
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+
+			t.Run("trying to add an existing rule", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				rule := api.CreateQuotaRuleOptions{
+					Name:  "double-rule",
+					Limit: &zero,
+				}
+
+				defer createQuotaRule(t, rule)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/rules", rule).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusConflict)
+			})
+		})
 	})
 
 	t.Run("adminDeleteQuotaRule", func(t *testing.T) {
@@ -210,6 +244,15 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
 		assert.NoError(t, err)
 		assert.Nil(t, rule)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("nonexistent rule", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/rules/does-not-exist").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+		})
 	})
 
 	t.Run("adminEditQuotaRule", func(t *testing.T) {
@@ -229,6 +272,33 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 		rule, err := quota_model.GetRuleByName(db.DefaultContext, "deny-all")
 		assert.NoError(t, err)
 		assert.EqualValues(t, 1024, rule.Limit)
+
+		t.Run("no options", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestWithJSON(t, "PATCH", "/api/v1/admin/quota/rules/deny-all", nil).AddTokenAuth(adminToken)
+			adminSession.MakeRequest(t, req, http.StatusNoContent)
+		})
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("nonexistent rule", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "PATCH", "/api/v1/admin/quota/rules/does-not-exist", api.EditQuotaRuleOptions{
+					Limit: &oneKb,
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("invalid subjects", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "PATCH", "/api/v1/admin/quota/rules/deny-all", api.EditQuotaRuleOptions{
+					Subjects: &[]string{"valid:false"},
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+		})
 	})
 
 	t.Run("adminListQuotaRules", func(t *testing.T) {
@@ -281,6 +351,26 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "default", group.Name)
 		assert.Len(t, group.Rules, 0)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("missing options", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups", nil).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+
+			t.Run("trying to add an existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				defer createQuotaGroup(t, "duplicate")()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups", api.CreateQuotaGroupOptions{
+					Name: "duplicate",
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusConflict)
+			})
+		})
 	})
 
 	t.Run("adminDeleteQuotaGroup", func(t *testing.T) {
@@ -294,6 +384,15 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		group, err := quota_model.GetGroupByName(db.DefaultContext, "default")
 		assert.NoError(t, err)
 		assert.Nil(t, group)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/does-not-exist").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+		})
 	})
 
 	t.Run("adminAddRuleToQuotaGroup", func(t *testing.T) {
@@ -310,6 +409,33 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, group.Rules, 1)
 		assert.Equal(t, "deny-all", group.Rules[0].Name)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("no options", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", nil).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/does-not-exist/rules", api.AddRuleToQuotaGroupOptions{
+					Name: "deny-all",
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("non-existing rule", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/rules", api.AddRuleToQuotaGroupOptions{
+					Name: "does-not-exist",
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+		})
 	})
 
 	t.Run("adminRemoveRuleFromQuotaGroup", func(t *testing.T) {
@@ -329,6 +455,33 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "default", group.Name)
 		assert.Empty(t, group.Rules)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/does-not-exist/rules/deny-all").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("non-existing rule", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default/rules/does-not-exist").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("rule not in group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+				defer createQuotaRule(t, api.CreateQuotaRuleOptions{
+					Name:  "rule-not-in-group",
+					Limit: &zero,
+				})()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default/rules/rule-not-in-group").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+		})
 	})
 
 	t.Run("adminGetQuotaGroup", func(t *testing.T) {
@@ -350,6 +503,15 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		assert.Equal(t, "default", q.Name)
 		assert.Len(t, q.Rules, 1)
 		assert.Equal(t, "deny-all", q.Rules[0].Name)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "GET", "/api/v1/admin/quota/groups/does-not-exist").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+		})
 	})
 
 	t.Run("adminListQuotaGroups", func(t *testing.T) {
@@ -389,6 +551,40 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, groups, 1)
 		assert.Equal(t, "default", groups[0].Name)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/does-not-exist/users", api.QuotaGroupAddOrRemoveUserOption{
+					Username: username,
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("non-existing user", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
+					Username: "this-user-does-not-exist",
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("user already added", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
+					Username: "user1",
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusCreated)
+
+				req = NewRequestWithJSON(t, "POST", "/api/v1/admin/quota/groups/default/users", api.QuotaGroupAddOrRemoveUserOption{
+					Username: "user1",
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusConflict)
+			})
+		})
 	})
 
 	t.Run("adminRemoveUserFromQuotaGroup", func(t *testing.T) {
@@ -407,6 +603,29 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		groups, err := quota_model.GetGroupsForUser(db.DefaultContext, user.ID)
 		assert.NoError(t, err)
 		assert.Empty(t, groups)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestf(t, "DELETE", "/api/v1/admin/quota/groups/does-not-exist/users/%s", username).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("non-existing user", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default/users/does-not-exist").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("user not in group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "DELETE", "/api/v1/admin/quota/groups/default/users/user1").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+		})
 	})
 
 	t.Run("adminListUsersInQuotaGroup", func(t *testing.T) {
@@ -426,6 +645,15 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 
 		assert.Len(t, q, 1)
 		assert.Equal(t, username, q[0].UserName)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequest(t, "GET", "/api/v1/admin/quota/groups/does-not-exist/users").AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+		})
 	})
 
 	t.Run("adminSetUserQuotaGroups", func(t *testing.T) {
@@ -444,6 +672,26 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 		groups, err := quota_model.GetGroupsForUser(db.DefaultContext, user.ID)
 		assert.NoError(t, err)
 		assert.Len(t, groups, 3)
+
+		t.Run("unhappy path", func(t *testing.T) {
+			t.Run("non-existing user", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", "/api/v1/admin/users/does-not-exist/quota/groups", api.SetUserQuotaGroupsOptions{
+					Groups: &[]string{"default", "test-1", "test-2"},
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusNotFound)
+			})
+
+			t.Run("non-existing group", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/admin/users/%s/quota/groups", username), api.SetUserQuotaGroupsOptions{
+					Groups: &[]string{"default", "test-1", "test-2", "this-group-does-not-exist"},
+				}).AddTokenAuth(adminToken)
+				adminSession.MakeRequest(t, req, http.StatusUnprocessableEntity)
+			})
+		})
 	})
 }
 
