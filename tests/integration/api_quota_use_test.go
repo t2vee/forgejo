@@ -569,6 +569,18 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			t.Run("CREATE", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 			})
+			t.Run("SYNC", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+			})
+
+			t.Run("{name}", func(t *testing.T) {
+				t.Run("GET", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+				t.Run("DELETE", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+				})
+			})
 		})
 
 		// TODO
