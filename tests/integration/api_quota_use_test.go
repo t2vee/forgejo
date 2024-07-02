@@ -916,18 +916,40 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		})
 	})
 
-	// TODO
 	t.Run("#/packages/{owner}/{type}/{name}/{version}", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
+		defer env.SetRuleLimit(t, "all", 0)()
+
+		// Create a generic package to play with
+		env.WithoutQuota(t, func() {
+			body := strings.NewReader("forgejo is awesome")
+			req := NewRequestWithBody(t, "PUT", fmt.Sprintf("/api/packages/%s/generic/quota-test/1.0.0/test.txt", env.User.User.Name), body).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusCreated)
+		})
 
 		t.Run("CREATE", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+
+			body := strings.NewReader("forgejo is awesome")
+			req := NewRequestWithBody(t, "PUT", fmt.Sprintf("/api/packages/%s/generic/quota-test/1.0.0/overquota.txt", env.User.User.Name), body).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 		})
+
 		t.Run("GET", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestf(t, "GET", "/api/v1/packages/%s/generic/quota-test/1.0.0", env.User.User.Name).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusOK)
 		})
 		t.Run("DELETE", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestf(t, "DELETE", "/api/v1/packages/%s/generic/quota-test/1.0.0", env.User.User.Name).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusNoContent)
 		})
 	})
 }
