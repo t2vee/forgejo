@@ -6,7 +6,10 @@
 package integration
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -59,13 +62,33 @@ func TestWebQuotaEnforcementRepoFork(t *testing.T) {
 	})
 }
 
-/*
-Routes:
-  org.PackagesRuleAdd{,Post}
-  org.PackagesRuleEdit{,Post}
+func TestWebQuotaEnforcementIssueAttachment(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
 
-  org.InitializeCargoIndex
-  org.RebuildCargoIndex
+		// Uploading to our repo => 413
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Users.Limited.Repo}).
+			CreateAttachment("test.txt").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
+
+		// Uploading to the limited org repo => 413
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Orgs.Limited.Repo}).
+			CreateAttachment("test.txt").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
+
+		// Uploading to the unlimited org repo => 200
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Orgs.Unlimited.Repo}).
+			CreateAttachment("test.txt").
+			ExpectStatus(http.StatusOK)
+	})
+}
+
+/*
+Done:
 
   PR repo.Create => should filter out invalid targets
   DONE repo.CreatePost
@@ -74,6 +97,15 @@ Routes:
   DONE repo.MigratePost
 
   PR & DONE repo.Fork{,Post} => filter & target check
+
+  DONE repo.UploadIssueAttachment => route check
+
+TODO:
+  org.PackagesRuleAdd{,Post}
+  org.PackagesRuleEdit{,Post}
+
+  org.InitializeCargoIndex
+  org.RebuildCargoIndex
 
   user.PackageSettingsPost => verify target? if this is where assignment happens
 
@@ -87,8 +119,6 @@ Routes:
   repo.ActionTransfer() => quota!
 
   repo.CompareAndPullRequest{,Post} => needs to check target quota, I think
-
-  repo.UploadIssueAttachment => route check
 
   repo.DiffPreviewPost => need quota here?
 
@@ -150,6 +180,8 @@ type quotaWebEnvOrgs struct {
 
 type quotaWebEnvOrg struct {
 	Org *org_model.Organization
+
+	Repo *repo_model.Repository
 
 	QuotaGroup *quota_model.Group
 	QuotaRule  *quota_model.Rule
@@ -221,6 +253,30 @@ func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
 	payload["_csrf"] = GetCSRF(ctx.t, ctx.Doer.Session, page)
 
 	ctx.request = NewRequestWithValues(ctx.t, "POST", page, payload)
+
+	return ctx
+}
+
+func (ctx *quotaWebEnvAsContext) CreateAttachment(filename string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	body := &bytes.Buffer{}
+	image := generateImg()
+
+	// Setup multi-part
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filename)
+	assert.NoError(ctx.t, err)
+	_, err = io.Copy(part, &image)
+	assert.NoError(ctx.t, err)
+	err = writer.Close()
+	assert.NoError(ctx.t, err)
+
+	csrf := GetCSRF(ctx.t, ctx.Doer.Session, ctx.Repo.Link())
+
+	ctx.request = NewRequestWithBody(ctx.t, "POST", ctx.Repo.Link()+"/issues/attachments", body)
+	ctx.request.Header.Add("X-Csrf-Token", csrf)
+	ctx.request.Header.Add("Content-Type", writer.FormDataContentType())
 
 	return ctx
 }
@@ -372,13 +428,18 @@ func createQuotaWebEnv(t *testing.T) *quotaWebEnv {
 
 		org := quotaWebEnvOrg{}
 
-		// Create the user
+		// Create the org
 		userName := gouuid.NewString()
 		org.Org = &org_model.Organization{
 			Name: userName,
 		}
 		err := org_model.CreateOrganization(db.DefaultContext, org.Org, owner)
 		assert.NoError(t, err)
+
+		// Create a repository for the org
+		orgUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: org.Org.ID})
+		repo, _, _ := CreateDeclarativeRepoWithOptions(t, orgUser, DeclarativeRepoOptions{})
+		org.Repo = repo
 
 		// Create a quota group for them
 		group, err := quota_model.CreateGroup(db.DefaultContext, userName)

@@ -84,9 +84,18 @@ func enforceQuotaWeb(ctx *Context, subject quota_model.LimitSubject, uid int64) 
 	return true
 }
 
-func EnforceQuotaWeb(subject quota_model.LimitSubject) func(ctx *Context) {
+func EnforceQuotaWeb(subject quota_model.LimitSubject, target QuotaTargetType) func(ctx *Context) {
 	return func(ctx *Context) {
-		enforceQuotaWeb(ctx, subject, ctx.Doer.ID)
+		var userID int64
+		switch target {
+		case QuotaTargetUser:
+			userID = ctx.Doer.ID
+		case QuotaTargetRepo:
+			userID = ctx.Repo.Owner.ID
+		case QuotaTargetOrg:
+			userID = ctx.Org.Organization.ID
+		}
+		enforceQuotaWeb(ctx, subject, userID)
 	}
 }
 
