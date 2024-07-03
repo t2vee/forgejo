@@ -52,7 +52,7 @@ func testWebQuotaEnforcement(t *testing.T) {
 			// Creating into *our* repo fails.
 			env.As(t, env.Users.Limited).
 				With(Context{
-					Payload: &map[string]string{
+					Payload: &Payload{
 						"uid": env.Users.Limited.ID().AsString(),
 					},
 				}).
@@ -62,7 +62,7 @@ func testWebQuotaEnforcement(t *testing.T) {
 			// Creating into a limited org also fails.
 			env.As(t, env.Users.Limited).
 				With(Context{
-					Payload: &map[string]string{
+					Payload: &Payload{
 						"uid": env.Orgs.Limited.ID().AsString(),
 					},
 				}).
@@ -72,7 +72,7 @@ func testWebQuotaEnforcement(t *testing.T) {
 			// Creating into an unlimited org works.
 			env.As(t, env.Users.Limited).
 				With(Context{
-					Payload: &map[string]string{
+					Payload: &Payload{
 						"uid": env.Orgs.Unlimited.ID().AsString(),
 					},
 				}).
@@ -197,20 +197,22 @@ type quotaWebEnvUser struct {
 	QuotaRule  *quota_model.Rule
 }
 
+type Payload map[string]string
+
 type quotaWebEnvAsContext struct {
 	t *testing.T
 
 	Doer *quotaWebEnvUser
 	Repo *repo_model.Repository
 
-	Payload map[string]string
+	Payload Payload
 
 	request *RequestWrapper
 }
 
 type Context struct {
 	Repo    *repo_model.Repository
-	Payload *map[string]string
+	Payload *Payload
 }
 
 func (ctx *quotaWebEnvAsContext) With(opts Context) *quotaWebEnvAsContext {
