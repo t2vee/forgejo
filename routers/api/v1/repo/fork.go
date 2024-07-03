@@ -12,6 +12,7 @@ import (
 	"code.gitea.io/gitea/models/organization"
 	"code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
+	quota_model "code.gitea.io/gitea/models/quota"
 	repo_model "code.gitea.io/gitea/models/repo"
 	user_model "code.gitea.io/gitea/models/user"
 	api "code.gitea.io/gitea/modules/structs"
@@ -134,6 +135,16 @@ func CreateFork(ctx *context.APIContext) {
 			return
 		}
 		forker = org.AsUser()
+	}
+
+	ok, err := quota_model.EvaluateForUser(ctx, forker.ID, quota_model.LimitSubjectSizeReposAll)
+	if err != nil {
+		ctx.InternalServerError(err)
+		return
+	}
+	if !ok {
+		ctx.QuotaExceeded()
+		return
 	}
 
 	var name string

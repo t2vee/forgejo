@@ -664,15 +664,65 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 		})
 
-		// TODO
 		t.Run("forks", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			t.Run("LIST", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
+			deleteRepo := func(t *testing.T, path string) {
+				t.Helper()
+
+				req := NewRequestf(t, "DELETE", "/api/v1/repos/%s", path).
+					AddTokenAuth(env.Admin.Token)
+				env.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
+			}
+
+			t.Run("as: limited user", func(t *testing.T) {
+				// Our current user (env.User) is already limited here.
+
+				t.Run("into: limited org", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/forks"), api.CreateForkOption{
+						Organization: &env.Orgs.Limited.UserName,
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+				})
+
+				t.Run("into: unlimited org", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/forks"), api.CreateForkOption{
+						Organization: &env.Orgs.Unlimited.UserName,
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusAccepted)
+
+					deleteRepo(t, env.Orgs.Unlimited.UserName+"/"+env.Repo.Name)
+				})
 			})
-			t.Run("CREATE", func(t *testing.T) {
+			t.Run("as: unlimited user", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
+
+				// Lift the quota limits on our current user temporarily
+				defer env.SetRuleLimit(t, "all", -1)()
+
+				t.Run("into: limited org", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/forks"), api.CreateForkOption{
+						Organization: &env.Orgs.Limited.UserName,
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+				})
+
+				t.Run("into: unlimited org", func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/forks"), api.CreateForkOption{
+						Organization: &env.Orgs.Unlimited.UserName,
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusAccepted)
+
+					deleteRepo(t, env.Orgs.Unlimited.UserName+"/"+env.Repo.Name)
+				})
 			})
 		})
 
