@@ -17,6 +17,7 @@ import (
 	"code.gitea.io/gitea/models/organization"
 	"code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
+	quota_model "code.gitea.io/gitea/models/quota"
 	repo_model "code.gitea.io/gitea/models/repo"
 	unit_model "code.gitea.io/gitea/models/unit"
 	user_model "code.gitea.io/gitea/models/user"
@@ -414,6 +415,16 @@ func Generate(ctx *context.APIContext) {
 				return
 			}
 		}
+	}
+
+	ok, err := quota_model.EvaluateForUser(ctx, ctxUser.ID, quota_model.LimitSubjectSizeReposAll)
+	if err != nil {
+		ctx.InternalServerError(err)
+		return
+	}
+	if !ok {
+		ctx.QuotaExceeded()
+		return
 	}
 
 	repo, err := repo_service.GenerateRepository(ctx, ctx.Doer, ctxUser, ctx.Repo.Repository, opts)

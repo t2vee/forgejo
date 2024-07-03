@@ -22,6 +22,7 @@ import (
 	repo_model "code.gitea.io/gitea/models/repo"
 	"code.gitea.io/gitea/models/unittest"
 	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/optional"
 	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/test"
@@ -456,9 +457,43 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		})
 	})
 
-	// TODO
 	t.Run("#/repos/{template_owner}/{template_repo}/generate", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
+
+		// Create a template repository
+		template, _, cleanup := CreateDeclarativeRepoWithOptions(t, env.User.User, DeclarativeRepoOptions{
+			IsTemplate: optional.Some(true),
+		})
+		defer cleanup()
+
+		// Drop the quota to 0
+		defer env.SetRuleLimit(t, "all", 0)()
+
+		t.Run("to: limited", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestWithJSON(t, "POST", template.APIURL()+"/generate", api.GenerateRepoOption{
+				Owner:      env.User.User.Name,
+				Name:       "generated-repo",
+				GitContent: true,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+		})
+
+		t.Run("to: unlimited", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequestWithJSON(t, "POST", template.APIURL()+"/generate", api.GenerateRepoOption{
+				Owner:      env.Orgs.Unlimited.UserName,
+				Name:       "generated-repo",
+				GitContent: true,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+			req = NewRequestf(t, "DELETE", "/api/v1/repos/%s/generated-repo", env.Orgs.Unlimited.UserName).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusNoContent)
+		})
 	})
 
 	t.Run("#/repos/{username}/{reponame}", func(t *testing.T) {
