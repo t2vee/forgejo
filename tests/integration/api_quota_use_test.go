@@ -22,11 +22,13 @@ import (
 	repo_model "code.gitea.io/gitea/models/repo"
 	"code.gitea.io/gitea/models/unittest"
 	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/migration"
 	"code.gitea.io/gitea/modules/optional"
 	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers"
+	repo_service "code.gitea.io/gitea/services/repository"
 	"code.gitea.io/gitea/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -726,9 +728,37 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
-		// TODO
 		t.Run("mirror-sync", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+
+			var mirrorRepo *repo_model.Repository
+			env.WithoutQuota(t, func() {
+				// Create a mirror repo
+				opts := migration.MigrateOptions{
+					RepoName:    "test_mirror",
+					Description: "Test mirror",
+					Private:     false,
+					Mirror:      true,
+					CloneAddr:   repo_model.RepoPath(env.User.User.Name, env.Repo.Name),
+					Wiki:        true,
+					Releases:    false,
+				}
+
+				repo, err := repo_service.CreateRepositoryDirectly(db.DefaultContext, env.User.User, env.User.User, repo_service.CreateRepoOptions{
+					Name:        opts.RepoName,
+					Description: opts.Description,
+					IsPrivate:   opts.Private,
+					IsMirror:    opts.Mirror,
+					Status:      repo_model.RepositoryBeingMigrated,
+				})
+				assert.NoError(t, err)
+
+				mirrorRepo = repo
+			})
+
+			req := NewRequestf(t, "POST", "/api/v1/repos/%s/mirror-sync", mirrorRepo.FullName()).
+				AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 		})
 
 		t.Run("issues", func(t *testing.T) {
