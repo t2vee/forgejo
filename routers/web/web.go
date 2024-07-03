@@ -945,7 +945,7 @@ func registerRoutes(m *web.Route) {
 		m.Get("/create", repo.Create)
 		m.Post("/create", web.Bind(forms.CreateRepoForm{}), repo.CreatePost)
 		m.Get("/migrate", repo.Migrate)
-		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll), repo.MigratePost)
+		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), repo.MigratePost)
 		if !setting.Repository.DisableForks {
 			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, repo.ForkByID)
 		}

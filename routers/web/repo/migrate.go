@@ -12,6 +12,7 @@ import (
 	"code.gitea.io/gitea/models"
 	admin_model "code.gitea.io/gitea/models/admin"
 	"code.gitea.io/gitea/models/db"
+	quota_model "code.gitea.io/gitea/models/quota"
 	repo_model "code.gitea.io/gitea/models/repo"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/base"
@@ -169,6 +170,10 @@ func MigratePost(ctx *context.Context) {
 	ctx.Data["ContextUser"] = ctxUser
 
 	tpl := base.TplName("repo/migrate/" + form.Service.Name())
+
+	if !context.EnforceQuotaWebForUser(ctx, quota_model.LimitSubjectSizeReposAll, ctxUser) {
+		return
+	}
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tpl)

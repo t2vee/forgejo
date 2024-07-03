@@ -26,6 +26,55 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestWebQuotaEnforcementRepoMigrate(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		// Visiting the repo migrate page is always allowed, because we can migrate
+		// *into* another org, for example.
+		env.As(t, env.Users.Limited).
+			VisitPage("/repo/migrate").
+			ExpectStatus(http.StatusOK)
+
+		// Migrating to our user fails, because we're over quota.
+		env.As(t, env.Users.Limited).
+			With(Context{
+				Payload: &Payload{
+					"uid":        env.Users.Limited.ID().AsString(),
+					"repo_name":  "failing-migration",
+					"clone_addr": env.Users.Limited.Repo.HTMLURL() + ".git",
+				},
+			}).
+			PostToPage("/repo/migrate").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
+
+		// Migrating to a limited org also fails, for the same reason.
+		env.As(t, env.Users.Limited).
+			With(Context{
+				Payload: &Payload{
+					"uid":        env.Orgs.Limited.ID().AsString(),
+					"repo_name":  "failing-migration",
+					"clone_addr": env.Users.Limited.Repo.HTMLURL() + ".git",
+				},
+			}).
+			PostToPage("/repo/migrate").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
+
+		// Migrating to an unlimited repo works, however.
+		env.As(t, env.Users.Limited).
+			With(Context{
+				Payload: &Payload{
+					"uid":        env.Orgs.Unlimited.ID().AsString(),
+					"repo_name":  "failing-migration",
+					"clone_addr": env.Users.Limited.Repo.HTMLURL() + ".git",
+				},
+			}).
+			PostToPage("/repo/migrate").
+			ExpectStatus(http.StatusOK)
+	})
+}
+
 func TestWebQuotaEnforcementRepoCreate(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
@@ -80,8 +129,8 @@ Routes:
   PR repo.Create => should filter out invalid targets
   DONE repo.CreatePost
 
-  repo.Migrate => should filter out invalid targets
-  repo.MigratePost
+  PR repo.Migrate => should filter out invalid targets
+  DONE repo.MigratePost
 
   repo.ForkByID => should filter out invalid targets
 
