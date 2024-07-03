@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	quota_model "code.gitea.io/gitea/models/quota"
+	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/base"
 )
 
@@ -70,17 +71,27 @@ func (ctx *Context) QuotaExceeded() {
 	ctx.HTML(http.StatusRequestEntityTooLarge, base.TplName("status/413"))
 }
 
+func enforceQuotaWeb(ctx *Context, subject quota_model.LimitSubject, uid int64) bool {
+	ok, err := quota_model.EvaluateForUser(ctx, uid, subject)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "quota_model.EvaluateForUser")
+		return false
+	}
+	if !ok {
+		ctx.QuotaExceeded()
+		return false
+	}
+	return true
+}
+
 func EnforceQuotaWeb(subject quota_model.LimitSubject) func(ctx *Context) {
 	return func(ctx *Context) {
-		ok, err := quota_model.EvaluateForUser(ctx, ctx.Doer.ID, subject)
-		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "quota_model.EvaluateForUser")
-			return
-		}
-		if !ok {
-			ctx.QuotaExceeded()
-		}
+		enforceQuotaWeb(ctx, subject, ctx.Doer.ID)
 	}
+}
+
+func EnforceQuotaWebForUser(ctx *Context, subject quota_model.LimitSubject, user *user_model.User) bool {
+	return enforceQuotaWeb(ctx, subject, user.ID)
 }
 
 // QuotaExceeded
