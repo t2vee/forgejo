@@ -88,16 +88,7 @@ Routes:
 
   repo.CompareAndPullRequest{,Post} => needs to check target quota, I think
 
-
-  repo.NewIssuePost => check for attachments?
-
-  repo.UpdateIssueContent => check if this deals with attachments.
-
-  repo.NewComment => check for attachments
-
   repo.UploadIssueAttachment => route check
-
-  repo.UpdateCommentContent => check if it deals w/ attachments
 
   repo.DiffPreviewPost => need quota here?
 

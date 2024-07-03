@@ -1165,7 +1165,7 @@ func registerRoutes(m *web.Route) {
 					m.Post("/add", repo.AddDependency)
 					m.Post("/delete", repo.RemoveDependency)
 				})
-				m.Combo("/comments").Post(repo.MustAllowUserComment, web.Bind(forms.CreateCommentForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeAssetsAttachmentsIssues), repo.NewComment)
+				m.Combo("/comments").Post(repo.MustAllowUserComment, web.Bind(forms.CreateCommentForm{}), repo.NewComment)
 				m.Group("/times", func() {
 					m.Post("/add", web.Bind(forms.AddTimeManuallyForm{}), repo.AddTimeManually)
 					m.Post("/{timeid}/delete", repo.DeleteTime)
