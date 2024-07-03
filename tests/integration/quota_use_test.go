@@ -21,64 +21,51 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers"
-	"code.gitea.io/gitea/tests"
 
 	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWebQuotaEnforcement(t *testing.T) {
+func TestWebQuotaEnforcementRepoCreate(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
-		testWebQuotaEnforcement(t)
-	})
-}
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
 
-func testWebQuotaEnforcement(t *testing.T) {
-	env := createQuotaWebEnv(t)
-	defer env.Cleanup()
+		// Visiting the repo create page is always allowed, because we can
+		// create *into* another org, for example.
+		env.As(t, env.Users.Limited).
+			VisitPage("/repo/create").
+			ExpectStatus(http.StatusOK)
 
-	t.Run("repos", func(t *testing.T) {
-		defer tests.PrintCurrentTest(t)()
+		// Creating into *our* repo fails.
+		env.As(t, env.Users.Limited).
+			With(Context{
+				Payload: &Payload{
+					"uid": env.Users.Limited.ID().AsString(),
+				},
+			}).
+			PostToPage("/repo/create").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
 
-		t.Run("create", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
+		// Creating into a limited org also fails.
+		env.As(t, env.Users.Limited).
+			With(Context{
+				Payload: &Payload{
+					"uid": env.Orgs.Limited.ID().AsString(),
+				},
+			}).
+			PostToPage("/repo/create").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
 
-			// Visiting the repo create page is always allowed, because we can
-			// create *into* another org, for example.
-			env.As(t, env.Users.Limited).
-				VisitPage("/repo/create").
-				ExpectStatus(http.StatusOK)
-
-			// Creating into *our* repo fails.
-			env.As(t, env.Users.Limited).
-				With(Context{
-					Payload: &Payload{
-						"uid": env.Users.Limited.ID().AsString(),
-					},
-				}).
-				PostToPage("/repo/create").
-				ExpectStatus(http.StatusRequestEntityTooLarge)
-
-			// Creating into a limited org also fails.
-			env.As(t, env.Users.Limited).
-				With(Context{
-					Payload: &Payload{
-						"uid": env.Orgs.Limited.ID().AsString(),
-					},
-				}).
-				PostToPage("/repo/create").
-				ExpectStatus(http.StatusRequestEntityTooLarge)
-
-			// Creating into an unlimited org works.
-			env.As(t, env.Users.Limited).
-				With(Context{
-					Payload: &Payload{
-						"uid": env.Orgs.Unlimited.ID().AsString(),
-					},
-				}).
-				PostToPage("/repo/create").
-				ExpectStatus(http.StatusOK)
-		})
+		// Creating into an unlimited org works.
+		env.As(t, env.Users.Limited).
+			With(Context{
+				Payload: &Payload{
+					"uid": env.Orgs.Unlimited.ID().AsString(),
+				},
+			}).
+			PostToPage("/repo/create").
+			ExpectStatus(http.StatusOK)
 	})
 }
 
