@@ -86,25 +86,33 @@ func EnforceQuotaWeb(subject quota_model.LimitSubject) func(ctx *Context) {
 // QuotaExceeded
 // swagger:response quotaExceeded
 type APIQuotaExceeded struct {
-	Message string `json:"message"`
+	Message  string `json:"message"`
+	UserID   int64  `json:"user_id"`
+	UserName string `json:"username,omitempty"`
 }
 
-func (ctx *APIContext) QuotaExceeded() {
+func (ctx *APIContext) QuotaExceeded(userID int64, username string) {
 	ctx.JSON(http.StatusRequestEntityTooLarge, APIQuotaExceeded{
-		Message: "quota exceeded",
+		Message:  "quota exceeded",
+		UserID:   userID,
+		UserName: username,
 	})
 }
 
 func EnforceQuotaAPI(subject quota_model.LimitSubject, target QuotaTargetType) func(ctx *APIContext) {
 	return func(ctx *APIContext) {
 		var userID int64
+		var username string
 		switch target {
 		case QuotaTargetUser:
 			userID = ctx.Doer.ID
+			username = ctx.Doer.Name
 		case QuotaTargetRepo:
 			userID = ctx.Repo.Owner.ID
+			username = ctx.Repo.Owner.Name
 		case QuotaTargetOrg:
 			userID = ctx.Org.Organization.ID
+			username = ctx.Org.Organization.Name
 		}
 		ok, err := quota_model.EvaluateForUser(ctx, userID, subject)
 		if err != nil {
@@ -112,7 +120,7 @@ func EnforceQuotaAPI(subject quota_model.LimitSubject, target QuotaTargetType) f
 			return
 		}
 		if !ok {
-			ctx.QuotaExceeded()
+			ctx.QuotaExceeded(userID, username)
 		}
 	}
 }

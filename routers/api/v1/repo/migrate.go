@@ -94,7 +94,7 @@ func Migrate(ctx *context.APIContext) {
 		return
 	}
 	if !ok {
-		ctx.QuotaExceeded()
+		ctx.QuotaExceeded(repoOwner.ID, repoOwner.Name)
 		return
 	}
 

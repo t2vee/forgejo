@@ -85,7 +85,7 @@ func Transfer(ctx *context.APIContext) {
 		return
 	}
 	if !ok {
-		ctx.QuotaExceeded()
+		ctx.QuotaExceeded(newOwner.ID, newOwner.Name)
 		return
 	}
 
@@ -253,7 +253,7 @@ func acceptOrRejectRepoTransfer(ctx *context.APIContext, accept bool) error {
 			return err
 		}
 		if !ok {
-			ctx.QuotaExceeded()
+			ctx.QuotaExceeded(repoTransfer.Recipient.ID, repoTransfer.Recipient.Name)
 			return nil
 		}
 		return repo_service.TransferOwnership(ctx, repoTransfer.Doer, repoTransfer.Recipient, ctx.Repo.Repository, repoTransfer.Teams)

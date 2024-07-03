@@ -423,7 +423,7 @@ func Generate(ctx *context.APIContext) {
 		return
 	}
 	if !ok {
-		ctx.QuotaExceeded()
+		ctx.QuotaExceeded(ctxUser.ID, ctxUser.Name)
 		return
 	}
 

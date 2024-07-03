@@ -28,6 +28,7 @@ import (
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers"
+	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/forms"
 	repo_service "code.gitea.io/gitea/services/repository"
 	"code.gitea.io/gitea/tests"
@@ -358,6 +359,27 @@ func TestAPIQuotaCountsTowardsCorrectUser(t *testing.T) {
 			BranchName: "admin-branch",
 		}).AddTokenAuth(env.Admin.Token)
 		env.Admin.Session.MakeRequest(t, req, http.StatusCreated)
+	})
+}
+
+func TestAPIQuotaError(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := prepareQuotaEnv(t, "quota-enforcement")
+		defer env.Cleanup()
+		env.SetupWithSingleQuotaRule(t)
+		env.AddUnlimitedOrg(t)
+		env.AddLimitedOrg(t)
+
+		req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/forks"), api.CreateForkOption{
+			Organization: &env.Orgs.Limited.UserName,
+		}).AddTokenAuth(env.User.Token)
+		resp := env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+
+		var msg context.APIQuotaExceeded
+		DecodeJSON(t, resp, &msg)
+
+		assert.EqualValues(t, env.Orgs.Limited.ID, msg.UserID)
+		assert.Equal(t, env.Orgs.Limited.UserName, msg.UserName)
 	})
 }
 
