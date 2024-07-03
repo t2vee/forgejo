@@ -51,7 +51,7 @@ func testWebQuotaEnforcement(t *testing.T) {
 			env.As(env.Users.Limited).
 				With(Context{
 					Payload: &map[string]string{
-						"uid": fmt.Sprintf("%d", env.Users.Limited.User.ID),
+						"uid": env.Users.Limited.ID().AsString(),
 					},
 				}).
 				PostToPage(t, "/repo/create", http.StatusRequestEntityTooLarge)
@@ -60,7 +60,7 @@ func testWebQuotaEnforcement(t *testing.T) {
 			env.As(env.Users.Limited).
 				With(Context{
 					Payload: &map[string]string{
-						"uid": fmt.Sprintf("%d", env.Orgs.Limited.Org.ID),
+						"uid": env.Orgs.Limited.ID().AsString(),
 					},
 				}).
 				PostToPage(t, "/repo/create", http.StatusRequestEntityTooLarge)
@@ -69,7 +69,7 @@ func testWebQuotaEnforcement(t *testing.T) {
 			env.As(env.Users.Limited).
 				With(Context{
 					Payload: &map[string]string{
-						"uid": fmt.Sprintf("%d", env.Orgs.Unlimited.Org.ID),
+						"uid": env.Orgs.Unlimited.ID().AsString(),
 					},
 				}).
 				PostToPage(t, "/repo/create", http.StatusOK)
@@ -253,6 +253,26 @@ func (user *quotaWebEnvUser) SetQuota(limit int64) func() {
 		user.QuotaRule.Limit = previousLimit
 		user.QuotaRule.Edit(db.DefaultContext, &previousLimit, nil)
 	}
+}
+
+func (user *quotaWebEnvUser) ID() convertAs {
+	return convertAs{
+		asString: fmt.Sprintf("%d", user.User.ID),
+	}
+}
+
+func (org *quotaWebEnvOrg) ID() convertAs {
+	return convertAs{
+		asString: fmt.Sprintf("%d", org.Org.ID),
+	}
+}
+
+type convertAs struct {
+	asString string
+}
+
+func (self convertAs) AsString() string {
+	return self.asString
 }
 
 func (env *quotaWebEnv) Cleanup() {
