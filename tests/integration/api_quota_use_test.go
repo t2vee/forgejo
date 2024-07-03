@@ -28,6 +28,7 @@ import (
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers"
+	"code.gitea.io/gitea/services/forms"
 	repo_service "code.gitea.io/gitea/services/repository"
 	"code.gitea.io/gitea/tests"
 
@@ -506,6 +507,14 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		// Drop the quota to 0
 		defer env.SetRuleLimit(t, "all", 0)()
 
+		deleteRepo := func(t *testing.T, path string) {
+			t.Helper()
+
+			req := NewRequestf(t, "DELETE", "/api/v1/repos/%s", path).
+				AddTokenAuth(env.Admin.Token)
+			env.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
+		}
+
 		t.Run("GET", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
@@ -668,14 +677,6 @@ func testAPIQuotaEnforcement(t *testing.T) {
 
 		t.Run("forks", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-
-			deleteRepo := func(t *testing.T, path string) {
-				t.Helper()
-
-				req := NewRequestf(t, "DELETE", "/api/v1/repos/%s", path).
-					AddTokenAuth(env.Admin.Token)
-				env.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
-			}
 
 			t.Run("as: limited user", func(t *testing.T) {
 				// Our current user (env.User) is already limited here.
@@ -912,34 +913,56 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
-		// TODO
 		t.Run("pulls", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			t.Run("LIST", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
-			})
-			t.Run("CREATE", func(t *testing.T) {
-				defer tests.PrintCurrentTest(t)()
-			})
+			// Fork the repository into the unlimited org first
+			req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/forks"), api.CreateForkOption{
+				Organization: &env.Orgs.Unlimited.UserName,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, http.StatusAccepted)
+
+			defer deleteRepo(t, env.Orgs.Unlimited.UserName+"/"+env.Repo.Name)
+
+			// Create a pull request!
+			//
+			// Creating a pull request this way does not increase the space of
+			// the base repo, so is not subject to quota enforcement.
+
+			req = NewRequestWithJSON(t, "POST", env.APIPathForRepo("/pulls"), api.CreatePullRequestOption{
+				Base:  "main",
+				Title: "test-pr",
+				Head:  fmt.Sprintf("%s:main", env.Orgs.Unlimited.UserName),
+			}).AddTokenAuth(env.User.Token)
+			resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+			var pr api.PullRequest
+			DecodeJSON(t, resp, &pr)
 
 			t.Run("{index}", func(t *testing.T) {
 				t.Run("GET", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequest(t, "GET", env.APIPathForRepo("/pulls/%d", pr.Index)).
+						AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusOK)
 				})
 				t.Run("UPDATE", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
+
+					req := NewRequestWithJSON(t, "PATCH", env.APIPathForRepo("/pulls/%d", pr.Index), api.EditPullRequestOption{
+						Title: "Updated title",
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusCreated)
 				})
 
 				t.Run("merge", func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
 
-					t.Run("GET", func(t *testing.T) {
-						defer tests.PrintCurrentTest(t)()
-					})
-					t.Run("MERGE", func(t *testing.T) {
-						defer tests.PrintCurrentTest(t)()
-					})
+					req := NewRequestWithJSON(t, "POST", env.APIPathForRepo("/pulls/%d/merge", pr.Index), forms.MergePullRequestForm{
+						Do: "merge",
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 				})
 			})
 		})
