@@ -240,12 +240,6 @@ func (ctx *quotaWebEnvAsContext) ExpectStatus(status int) *httptest.ResponseReco
 	return ctx.Doer.Session.MakeRequest(ctx.t, ctx.request, status)
 }
 
-func (ctx *quotaWebEnvAsContext) VisitRepoPage(page string) *quotaWebEnvAsContext {
-	ctx.t.Helper()
-
-	return ctx.VisitPage(ctx.Repo.Link() + page)
-}
-
 func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
@@ -279,12 +273,6 @@ func (ctx *quotaWebEnvAsContext) CreateAttachment(filename string) *quotaWebEnvA
 	ctx.request.Header.Add("Content-Type", writer.FormDataContentType())
 
 	return ctx
-}
-
-func (ctx *quotaWebEnvAsContext) PostToRepoPage(page string) *quotaWebEnvAsContext {
-	ctx.t.Helper()
-
-	return ctx.PostToPage(ctx.Repo.Link() + page)
 }
 
 func (user *quotaWebEnvUser) SetQuota(limit int64) func() {
