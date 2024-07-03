@@ -39,6 +39,7 @@ type quotaEnvUser struct {
 
 type quotaEnvOrgs struct {
 	Unlimited api.Organization
+	Limited   api.Organization
 }
 
 type quotaEnv struct {
@@ -95,6 +96,59 @@ func (e *quotaEnv) SetupWithSingleQuotaRule(t *testing.T) {
 	// Add the user to the quota group
 	cleaner = e.AddUserToGroup(t, "default", e.User.User.Name)
 	e.cleanups = append(e.cleanups, cleaner)
+}
+
+func (e *quotaEnv) AddLimitedOrg(t *testing.T) {
+	t.Helper()
+
+	// Create the limited org
+	req := NewRequestWithJSON(t, "POST", "/api/v1/orgs", api.CreateOrgOption{
+		UserName: "limited-org",
+	}).AddTokenAuth(e.User.Token)
+	resp := e.User.Session.MakeRequest(t, req, http.StatusCreated)
+	DecodeJSON(t, resp, &e.Orgs.Limited)
+	e.cleanups = append(e.cleanups, func() {
+		req := NewRequest(t, "DELETE", "/api/v1/orgs/limited-org").
+			AddTokenAuth(e.Admin.Token)
+		e.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
+	})
+
+	// Create a group for the org
+	cleaner := createQuotaGroup(t, "org-limited")
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Create a single all-encompassing rule
+	zero := int64(0)
+	ruleDenyAll := api.CreateQuotaRuleOptions{
+		Name:     "deny-all",
+		Limit:    &zero,
+		Subjects: []string{"size:all"},
+	}
+	cleaner = createQuotaRule(t, ruleDenyAll)
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Add these rules to the group
+	cleaner = e.AddRuleToGroup(t, "org-limited", "deny-all")
+	e.cleanups = append(e.cleanups, cleaner)
+
+	// Add the user to the quota group
+	cleaner = e.AddUserToGroup(t, "org-limited", e.Orgs.Limited.UserName)
+	e.cleanups = append(e.cleanups, cleaner)
+}
+
+func (e *quotaEnv) AddUnlimitedOrg(t *testing.T) {
+	t.Helper()
+
+	req := NewRequestWithJSON(t, "POST", "/api/v1/orgs", api.CreateOrgOption{
+		UserName: "unlimited-org",
+	}).AddTokenAuth(e.User.Token)
+	resp := e.User.Session.MakeRequest(t, req, http.StatusCreated)
+	DecodeJSON(t, resp, &e.Orgs.Unlimited)
+	e.cleanups = append(e.cleanups, func() {
+		req := NewRequest(t, "DELETE", "/api/v1/orgs/unlimited-org").
+			AddTokenAuth(e.Admin.Token)
+		e.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
+	})
 }
 
 func (e *quotaEnv) SetupWithMultipleQuotaRules(t *testing.T) {
@@ -218,18 +272,6 @@ func prepareQuotaEnv(t *testing.T, username string) *quotaEnv {
 	env.Repo = repo
 	env.cleanups = append(env.cleanups, repoCleanup)
 
-	// Create an unlimited organization
-	req := NewRequestWithJSON(t, "POST", "/api/v1/orgs", api.CreateOrgOption{
-		UserName: "unlimited-org",
-	}).AddTokenAuth(env.User.Token)
-	resp := env.User.Session.MakeRequest(t, req, http.StatusCreated)
-	DecodeJSON(t, resp, &env.Orgs.Unlimited)
-	env.cleanups = append(env.cleanups, func() {
-		req := NewRequest(t, "DELETE", "/api/v1/orgs/unlimited-org?purge=true").
-			AddTokenAuth(env.Admin.Token)
-		env.Admin.Session.MakeRequest(t, req, http.StatusNoContent)
-	})
-
 	return &env
 }
 
@@ -299,6 +341,8 @@ func testAPIQuotaEnforcement(t *testing.T) {
 	env := prepareQuotaEnv(t, "quota-enforcement")
 	defer env.Cleanup()
 	env.SetupWithSingleQuotaRule(t)
+	env.AddUnlimitedOrg(t)
+	env.AddLimitedOrg(t)
 
 	t.Run("#/user/repos", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
@@ -322,16 +366,47 @@ func testAPIQuotaEnforcement(t *testing.T) {
 		})
 	})
 
-	// TODO
 	t.Run("#/orgs/{org}/repos", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
+		defer env.SetRuleLimit(t, "all", 0)
 
-		t.Run("LIST", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
+		assertCreateRepo := func(t *testing.T, orgName, repoName string, expectedStatus int) func() {
+			t.Helper()
+
+			req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/orgs/%s/repos", orgName), api.CreateRepoOption{
+				Name: repoName,
+			}).AddTokenAuth(env.User.Token)
+			env.User.Session.MakeRequest(t, req, expectedStatus)
+
+			return func() {
+				req := NewRequestf(t, "DELETE", "/api/v1/repos/%s/%s", orgName, repoName).
+					AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusNoContent)
+			}
+		}
+
+		t.Run("limited", func(t *testing.T) {
+			t.Run("LIST", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				req := NewRequestf(t, "GET", "/api/v1/orgs/%s/repos", env.Orgs.Unlimited.UserName).
+					AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusOK)
+			})
+
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				assertCreateRepo(t, env.Orgs.Limited.UserName, "test-repo", http.StatusRequestEntityTooLarge)
+			})
 		})
 
-		t.Run("CREATE", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
+		t.Run("unlimited", func(t *testing.T) {
+			t.Run("CREATE", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				defer assertCreateRepo(t, env.Orgs.Unlimited.UserName, "test-repo", http.StatusCreated)()
+			})
 		})
 	})
 

@@ -16,6 +16,7 @@ type QuotaTargetType int
 const (
 	QuotaTargetUser QuotaTargetType = iota
 	QuotaTargetRepo
+	QuotaTargetOrg
 )
 
 // QuotaGroupAssignmentAPI returns a middleware to handle context-quota-group assignment for api routes
@@ -102,6 +103,8 @@ func EnforceQuotaAPI(subject quota_model.LimitSubject, target QuotaTargetType) f
 			userID = ctx.Doer.ID
 		case QuotaTargetRepo:
 			userID = ctx.Repo.Owner.ID
+		case QuotaTargetOrg:
+			userID = ctx.Org.Organization.ID
 		}
 		ok, err := quota_model.EvaluateForUser(ctx, userID, subject)
 		if err != nil {
