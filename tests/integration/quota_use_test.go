@@ -259,8 +259,8 @@ type convertAs struct {
 	asString string
 }
 
-func (self convertAs) AsString() string {
-	return self.asString
+func (cas convertAs) AsString() string {
+	return cas.asString
 }
 
 func (env *quotaWebEnv) Cleanup() {
