@@ -1140,7 +1140,7 @@ func registerRoutes(m *web.Route) {
 	m.Group("/{username}/{reponame}", func() {
 		if !setting.Repository.DisableForks {
 			m.Combo("/fork", reqRepoCodeReader).Get(repo.Fork).
-				Post(web.Bind(forms.CreateRepoForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeGitAll), repo.ForkPost)
+				Post(web.Bind(forms.CreateRepoForm{}), repo.ForkPost)
 		}
 		m.Group("/issues", func() {
 			m.Group("/new", func() {

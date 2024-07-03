@@ -34,7 +34,7 @@ func TestWebQuotaEnforcementRepoMigrate(t *testing.T) {
 		env.RunVisitAndPostToPageTests(t, "/repo/migrate", &Payload{
 			"repo_name":  "migration-test",
 			"clone_addr": env.Users.Limited.Repo.Link() + ".git",
-		})
+		}, http.StatusOK)
 	})
 }
 
@@ -43,7 +43,19 @@ func TestWebQuotaEnforcementRepoCreate(t *testing.T) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
 
-		env.RunVisitAndPostToPageTests(t, "/repo/create", nil)
+		env.RunVisitAndPostToPageTests(t, "/repo/create", nil, http.StatusOK)
+	})
+}
+
+func TestWebQuotaEnforcementRepoFork(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		page := fmt.Sprintf("%s/fork", env.Users.Limited.Repo.Link())
+		env.RunVisitAndPostToPageTests(t, page, &Payload{
+			"repo_name": "fork-test",
+		}, http.StatusSeeOther)
 	})
 }
 
@@ -61,7 +73,7 @@ Routes:
   PR repo.Migrate => should filter out invalid targets
   DONE repo.MigratePost
 
-  repo.ForkByID => should filter out invalid targets
+  PR & DONE repo.Fork{,Post} => filter & target check
 
   user.PackageSettingsPost => verify target? if this is where assignment happens
 
@@ -76,7 +88,6 @@ Routes:
 
   repo.CompareAndPullRequest{,Post} => needs to check target quota, I think
 
-  repo.Fork{,Post} => filter & target check
 
   repo.NewIssuePost => check for attachments?
 
@@ -280,7 +291,7 @@ func (env *quotaWebEnv) As(t *testing.T, user quotaWebEnvUser) *quotaWebEnvAsCon
 	return &ctx
 }
 
-func (env *quotaWebEnv) RunVisitAndPostToPageTests(t *testing.T, page string, payload *Payload) {
+func (env *quotaWebEnv) RunVisitAndPostToPageTests(t *testing.T, page string, payload *Payload, successStatus int) {
 	t.Helper()
 
 	// Visiting the page is always fine.
@@ -319,7 +330,7 @@ func (env *quotaWebEnv) RunVisitAndPostToPageTests(t *testing.T, page string, pa
 			},
 		}).
 		PostToPage(page).
-		ExpectStatus(http.StatusOK)
+		ExpectStatus(successStatus)
 }
 
 func createQuotaWebEnv(t *testing.T) *quotaWebEnv {
