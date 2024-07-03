@@ -8,6 +8,7 @@ package integration
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
@@ -44,35 +45,39 @@ func testWebQuotaEnforcement(t *testing.T) {
 
 			// Visiting the repo create page is always allowed, because we can
 			// create *into* another org, for example.
-			env.As(env.Users.Limited).
-				VisitPage(t, "/repo/create", http.StatusOK)
+			env.As(t, env.Users.Limited).
+				VisitPage("/repo/create").
+				ExpectStatus(http.StatusOK)
 
 			// Creating into *our* repo fails.
-			env.As(env.Users.Limited).
+			env.As(t, env.Users.Limited).
 				With(Context{
 					Payload: &map[string]string{
 						"uid": env.Users.Limited.ID().AsString(),
 					},
 				}).
-				PostToPage(t, "/repo/create", http.StatusRequestEntityTooLarge)
+				PostToPage("/repo/create").
+				ExpectStatus(http.StatusRequestEntityTooLarge)
 
 			// Creating into a limited org also fails.
-			env.As(env.Users.Limited).
+			env.As(t, env.Users.Limited).
 				With(Context{
 					Payload: &map[string]string{
 						"uid": env.Orgs.Limited.ID().AsString(),
 					},
 				}).
-				PostToPage(t, "/repo/create", http.StatusRequestEntityTooLarge)
+				PostToPage("/repo/create").
+				ExpectStatus(http.StatusRequestEntityTooLarge)
 
 			// Creating into an unlimited org works.
-			env.As(env.Users.Limited).
+			env.As(t, env.Users.Limited).
 				With(Context{
 					Payload: &map[string]string{
 						"uid": env.Orgs.Unlimited.ID().AsString(),
 					},
 				}).
-				PostToPage(t, "/repo/create", http.StatusOK)
+				PostToPage("/repo/create").
+				ExpectStatus(http.StatusOK)
 		})
 	})
 }
@@ -193,10 +198,14 @@ type quotaWebEnvUser struct {
 }
 
 type quotaWebEnvAsContext struct {
+	t *testing.T
+
 	Doer *quotaWebEnvUser
 	Repo *repo_model.Repository
 
 	Payload map[string]string
+
+	request *RequestWrapper
 }
 
 type Context struct {
@@ -214,33 +223,41 @@ func (ctx *quotaWebEnvAsContext) With(opts Context) *quotaWebEnvAsContext {
 	return ctx
 }
 
-func (ctx *quotaWebEnvAsContext) VisitPage(t *testing.T, page string, expectedStatus int) {
-	t.Helper()
+func (ctx *quotaWebEnvAsContext) VisitPage(page string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
 
-	req := NewRequest(t, "GET", page)
-	ctx.Doer.Session.MakeRequest(t, req, expectedStatus)
+	ctx.request = NewRequest(ctx.t, "GET", page)
+
+	return ctx
 }
 
-func (ctx *quotaWebEnvAsContext) VisitRepoPage(t *testing.T, page string, expectedStatus int) {
-	t.Helper()
+func (ctx *quotaWebEnvAsContext) ExpectStatus(status int) *httptest.ResponseRecorder {
+	ctx.t.Helper()
 
-	ctx.VisitPage(t, ctx.Repo.HTMLURL()+page, expectedStatus)
+	return ctx.Doer.Session.MakeRequest(ctx.t, ctx.request, status)
 }
 
-func (ctx *quotaWebEnvAsContext) PostToPage(t *testing.T, page string, expectedStatus int) {
-	t.Helper()
+func (ctx *quotaWebEnvAsContext) VisitRepoPage(page string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	return ctx.VisitPage(ctx.Repo.HTMLURL() + page)
+}
+
+func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
 
 	payload := ctx.Payload
-	payload["_csrf"] = GetCSRF(t, ctx.Doer.Session, page)
+	payload["_csrf"] = GetCSRF(ctx.t, ctx.Doer.Session, page)
 
-	req := NewRequestWithValues(t, "POST", page, payload)
-	ctx.Doer.Session.MakeRequest(t, req, expectedStatus)
+	ctx.request = NewRequestWithValues(ctx.t, "POST", page, payload)
+
+	return ctx
 }
 
-func (ctx *quotaWebEnvAsContext) PostToRepoPage(t *testing.T, page string, expectedStatus int) {
-	t.Helper()
+func (ctx *quotaWebEnvAsContext) PostToRepoPage(page string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
 
-	ctx.PostToPage(t, ctx.Repo.HTMLURL()+page, expectedStatus)
+	return ctx.PostToPage(ctx.Repo.HTMLURL() + page)
 }
 
 func (user *quotaWebEnvUser) SetQuota(limit int64) func() {
@@ -281,8 +298,11 @@ func (env *quotaWebEnv) Cleanup() {
 	}
 }
 
-func (env *quotaWebEnv) As(user quotaWebEnvUser) *quotaWebEnvAsContext {
+func (env *quotaWebEnv) As(t *testing.T, user quotaWebEnvUser) *quotaWebEnvAsContext {
+	t.Helper()
+
 	ctx := quotaWebEnvAsContext{
+		t:    t,
 		Doer: &user,
 		Repo: user.Repo,
 	}
