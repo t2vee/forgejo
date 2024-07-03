@@ -33,7 +33,7 @@ func TestWebQuotaEnforcementRepoMigrate(t *testing.T) {
 
 		env.RunVisitAndPostToPageTests(t, "/repo/migrate", &Payload{
 			"repo_name":  "migration-test",
-			"clone_addr": env.Users.Limited.Repo.HTMLURL() + ".git",
+			"clone_addr": env.Users.Limited.Repo.Link() + ".git",
 		})
 	})
 }
@@ -209,7 +209,7 @@ func (ctx *quotaWebEnvAsContext) ExpectStatus(status int) *httptest.ResponseReco
 func (ctx *quotaWebEnvAsContext) VisitRepoPage(page string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
-	return ctx.VisitPage(ctx.Repo.HTMLURL() + page)
+	return ctx.VisitPage(ctx.Repo.Link() + page)
 }
 
 func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
@@ -226,7 +226,7 @@ func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
 func (ctx *quotaWebEnvAsContext) PostToRepoPage(page string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
-	return ctx.PostToPage(ctx.Repo.HTMLURL() + page)
+	return ctx.PostToPage(ctx.Repo.Link() + page)
 }
 
 func (user *quotaWebEnvUser) SetQuota(limit int64) func() {
