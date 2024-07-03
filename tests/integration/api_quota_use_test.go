@@ -45,8 +45,10 @@ type quotaEnvOrgs struct {
 type quotaEnv struct {
 	Admin quotaEnvUser
 	User  quotaEnvUser
-	Repo  *repo_model.Repository
-	Orgs  quotaEnvOrgs
+	Dummy quotaEnvUser
+
+	Repo *repo_model.Repository
+	Orgs quotaEnvOrgs
 
 	cleanups []func()
 }
@@ -62,8 +64,12 @@ func (e *quotaEnv) Cleanup() {
 	}
 }
 
-func (e *quotaEnv) WithoutQuota(t *testing.T, task func()) {
-	defer e.SetRuleLimit(t, "all", -1)()
+func (e *quotaEnv) WithoutQuota(t *testing.T, task func(), rules ...string) {
+	rule := "all"
+	if rules != nil {
+		rule = rules[0]
+	}
+	defer e.SetRuleLimit(t, rule, -1)()
 	task()
 }
 
@@ -98,6 +104,20 @@ func (e *quotaEnv) SetupWithSingleQuotaRule(t *testing.T) {
 	e.cleanups = append(e.cleanups, cleaner)
 }
 
+func (e *quotaEnv) AddDummyUser(t *testing.T, username string) {
+	t.Helper()
+
+	userCleanup := apiCreateUser(t, username)
+	e.Dummy.User = unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: username})
+	e.Dummy.Session = loginUser(t, e.Dummy.User.Name)
+	e.Dummy.Token = getTokenForLoggedInUser(t, e.Dummy.Session, auth_model.AccessTokenScopeAll)
+	e.cleanups = append(e.cleanups, userCleanup)
+
+	// Add the user to the "limited" group. See AddLimitedOrg
+	cleaner := e.AddUserToGroup(t, "limited", username)
+	e.cleanups = append(e.cleanups, cleaner)
+}
+
 func (e *quotaEnv) AddLimitedOrg(t *testing.T) {
 	t.Helper()
 
@@ -114,7 +134,7 @@ func (e *quotaEnv) AddLimitedOrg(t *testing.T) {
 	})
 
 	// Create a group for the org
-	cleaner := createQuotaGroup(t, "org-limited")
+	cleaner := createQuotaGroup(t, "limited")
 	e.cleanups = append(e.cleanups, cleaner)
 
 	// Create a single all-encompassing rule
@@ -128,11 +148,11 @@ func (e *quotaEnv) AddLimitedOrg(t *testing.T) {
 	e.cleanups = append(e.cleanups, cleaner)
 
 	// Add these rules to the group
-	cleaner = e.AddRuleToGroup(t, "org-limited", "deny-all")
+	cleaner = e.AddRuleToGroup(t, "limited", "deny-all")
 	e.cleanups = append(e.cleanups, cleaner)
 
 	// Add the user to the quota group
-	cleaner = e.AddUserToGroup(t, "org-limited", e.Orgs.Limited.UserName)
+	cleaner = e.AddUserToGroup(t, "limited", e.Orgs.Limited.UserName)
 	e.cleanups = append(e.cleanups, cleaner)
 }
 
@@ -343,6 +363,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 	env.SetupWithSingleQuotaRule(t)
 	env.AddUnlimitedOrg(t)
 	env.AddLimitedOrg(t)
+	env.AddDummyUser(t, "qe-dummy")
 
 	t.Run("#/user/repos", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
@@ -1022,9 +1043,60 @@ func testAPIQuotaEnforcement(t *testing.T) {
 			})
 		})
 
-		// TODO
 		t.Run("transfer", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
+			t.Run("to: limited", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				// Create a repository to transfer
+				repo, _, cleanup := CreateDeclarativeRepoWithOptions(t, env.User.User, DeclarativeRepoOptions{})
+				defer cleanup()
+
+				// Initiate repo transfer
+				req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/transfer", env.User.User.Name, repo.Name), api.TransferRepoOption{
+					NewOwner: env.Dummy.User.Name,
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+
+				// Initiate it outside of quotas, so we can test accept/reject.
+				env.WithoutQuota(t, func() {
+					req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/transfer", env.User.User.Name, repo.Name), api.TransferRepoOption{
+						NewOwner: env.Dummy.User.Name,
+					}).AddTokenAuth(env.User.Token)
+					env.User.Session.MakeRequest(t, req, http.StatusCreated)
+				}, "deny-all") // a bit of a hack, sorry!
+
+				// Try to accept the repo transfer
+				req = NewRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/transfer/accept", env.User.User.Name, repo.Name)).
+					AddTokenAuth(env.Dummy.Token)
+				env.Dummy.Session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
+
+				// Then reject it.
+				req = NewRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/transfer/reject", env.User.User.Name, repo.Name)).
+					AddTokenAuth(env.Dummy.Token)
+				env.Dummy.Session.MakeRequest(t, req, http.StatusOK)
+			})
+
+			t.Run("to: unlimited", func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				// Disable the quota for the dummy user
+				defer env.SetRuleLimit(t, "deny-all", -1)()
+
+				// Create a repository to transfer
+				repo, _, cleanup := CreateDeclarativeRepoWithOptions(t, env.User.User, DeclarativeRepoOptions{})
+				defer cleanup()
+
+				// Initiate repo transfer
+				req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/transfer", env.User.User.Name, repo.Name), api.TransferRepoOption{
+					NewOwner: env.Dummy.User.Name,
+				}).AddTokenAuth(env.User.Token)
+				env.User.Session.MakeRequest(t, req, http.StatusCreated)
+
+				// Accept the repo transfer
+				req = NewRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/transfer/accept", env.User.User.Name, repo.Name)).
+					AddTokenAuth(env.Dummy.Token)
+				env.Dummy.Session.MakeRequest(t, req, http.StatusAccepted)
+			})
 		})
 	})
 

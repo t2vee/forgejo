@@ -12,6 +12,7 @@ import (
 	"code.gitea.io/gitea/models/organization"
 	"code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
+	quota_model "code.gitea.io/gitea/models/quota"
 	repo_model "code.gitea.io/gitea/models/repo"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/log"
@@ -76,6 +77,16 @@ func Transfer(ctx *context.APIContext) {
 			ctx.Error(http.StatusNotFound, "", "The new owner does not exist or cannot be found")
 			return
 		}
+	}
+
+	ok, err := quota_model.EvaluateForUser(ctx, newOwner.ID, quota_model.LimitSubjectSizeReposAll)
+	if err != nil {
+		ctx.InternalServerError(err)
+		return
+	}
+	if !ok {
+		ctx.QuotaExceeded()
+		return
 	}
 
 	var teams []*organization.Team
@@ -237,6 +248,14 @@ func acceptOrRejectRepoTransfer(ctx *context.APIContext, accept bool) error {
 	}
 
 	if accept {
+		ok, err := quota_model.EvaluateForUser(ctx, repoTransfer.Recipient.ID, quota_model.LimitSubjectSizeReposAll)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ctx.QuotaExceeded()
+			return nil
+		}
 		return repo_service.TransferOwnership(ctx, repoTransfer.Doer, repoTransfer.Recipient, ctx.Repo.Repository, repoTransfer.Teams)
 	}
 
