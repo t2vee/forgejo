@@ -48,6 +48,8 @@ type preReceiveContext struct {
 
 	opts *private.HookOptions
 
+	isOverQuota bool
+
 	branchName string
 }
 
@@ -141,9 +143,10 @@ func (ctx *preReceiveContext) assertPushOptions() bool {
 	return true
 }
 
-func (ctx *preReceiveContext) assertQuota() bool {
+func (ctx *preReceiveContext) checkQuota() error {
 	if !ctx.loadPusherAndPermission() {
-		return false
+		ctx.isOverQuota = true
+		return nil
 	}
 
 	ok, err := quota_model.EvaluateForUser(ctx, ctx.PrivateContext.Repo.Repository.OwnerID, quota_model.LimitSubjectSizeReposAll)
@@ -152,15 +155,17 @@ func (ctx *preReceiveContext) assertQuota() bool {
 		ctx.JSON(http.StatusInternalServerError, private.Response{
 			UserMsg: "Error checking user quota",
 		})
-		return false
+		return err
 	}
-	if !ok {
-		ctx.JSON(http.StatusRequestEntityTooLarge, private.Response{
-			UserMsg: "Quota exceeded",
-		})
-		return false
-	}
-	return true
+
+	ctx.isOverQuota = !ok
+	return nil
+}
+
+func (ctx *preReceiveContext) quotaExceeded() {
+	ctx.JSON(http.StatusRequestEntityTooLarge, private.Response{
+		UserMsg: "Quota exceeded",
+	})
 }
 
 // HookPreReceive checks whether a individual commit is acceptable
@@ -179,7 +184,7 @@ func HookPreReceive(ctx *gitea_context.PrivateContext) {
 	}
 	log.Trace("Git push options validation succeeded")
 
-	if !ourCtx.assertQuota() {
+	if err := ourCtx.checkQuota(); err != nil {
 		return
 	}
 
@@ -197,6 +202,10 @@ func HookPreReceive(ctx *gitea_context.PrivateContext) {
 		case git.SupportProcReceive && refFullName.IsFor():
 			preReceiveFor(ourCtx, oldCommitID, newCommitID, refFullName)
 		default:
+			if ourCtx.isOverQuota {
+				ourCtx.quotaExceeded()
+				return
+			}
 			ourCtx.AssertCanWriteCode()
 		}
 		if ctx.Written() {
@@ -238,6 +247,11 @@ func preReceiveBranch(ctx *preReceiveContext, oldCommitID, newCommitID string, r
 
 	// Allow pushes to non-protected branches
 	if protectBranch == nil {
+		// ...unless the user is over quota, and the operation is not a delete
+		if newCommitID != objectFormat.EmptyObjectID().String() && ctx.isOverQuota {
+			ctx.quotaExceeded()
+		}
+
 		return
 	}
 	protectBranch.Repo = repo
@@ -478,6 +492,15 @@ func preReceiveTag(ctx *preReceiveContext, oldCommitID, newCommitID string, refF
 			UserMsg: fmt.Sprintf("Tag %s is protected", tagName),
 		})
 		return
+	}
+
+	// If the user is over quota, and the push isn't a tag deletion, deny it
+	if ctx.isOverQuota {
+		objectFormat := ctx.Repo.GetObjectFormat()
+		if newCommitID != objectFormat.EmptyObjectID().String() {
+			ctx.quotaExceeded()
+			return
+		}
 	}
 }
 
