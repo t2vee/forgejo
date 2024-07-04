@@ -334,14 +334,11 @@ Done:
 
 TODO:
 
-  protected tags? do they ++ git size, or are they db only like protected branch settings?
-
   repo_lfs.LFSAutoAssociate? do we care?
 
   repo.ActionTransfer() => quota!
 
   repo.WikiPost => route check
-
 
   repo.LastCommit POST => ???
 
