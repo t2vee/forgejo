@@ -261,12 +261,11 @@ Done:
        incl: repo.CreateBranch
   DONE repo.RestoreBranch{,Post} => no quota check needed. this does not change the storage size: it just restores what's already there.
 
+  LATER repo.UploadFileToServer => where does this upload it to? quota check needed, but what subject?
+
 TODO:
   org.PackagesRuleAdd{,Post}
   org.PackagesRuleEdit{,Post}
-
-  org.InitializeCargoIndex
-  org.RebuildCargoIndex
 
   user.PackageSettingsPost => verify target? if this is where assignment happens
 
@@ -275,11 +274,6 @@ TODO:
   repo_lfs.LFSAutoAssociate? do we care?
 
   repo.ActionTransfer() => quota!
-
-  repo.CompareAndPullRequest{,Post} => needs to check target quota, I think
-
-  repo.UploadFileToServer => where does this upload it to? quota check needed, but what subject?
-
 
   repo.NewRelease{,Post} => route check? since it can create tags.
   repo.EditRelease{,Post} => same
