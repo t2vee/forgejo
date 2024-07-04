@@ -6,6 +6,8 @@ test.beforeAll(async ({browser}, workerInfo) => {
   await login_user(browser, workerInfo, 'user2');
 });
 
+const workflow_trigger_notification_text = 'This workflow has a workflow_dispatch event trigger.';
+
 test('Test workflow dispatch present', async ({browser}, workerInfo) => {
   const context = await load_logged_in_context(browser, workerInfo, 'user2');
   /** @type {import('@playwright/test').Page} */
@@ -13,7 +15,7 @@ test('Test workflow dispatch present', async ({browser}, workerInfo) => {
 
   await page.goto('/user2/test_workflows/actions?workflow=test-dispatch.yml&actor=0&status=0');
 
-  await expect(page.getByText('This workflow has a workflow_dispatch event trigger.')).toBeVisible();
+  await expect(page.getByText(workflow_trigger_notification_text)).toBeVisible();
 
   const run_workflow_btn = page.locator('#workflow_dispatch_dropdown>button');
   await expect(run_workflow_btn).toBeVisible();
@@ -77,5 +79,5 @@ test('Test workflow dispatch box not available for unauthenticated users', async
   await page.goto('/user2/test_workflows/actions?workflow=test-dispatch.yml&actor=0&status=0');
   await page.waitForLoadState('networkidle');
 
-  await expect(page.locator('body')).not.toContainText('This workflow has a workflow_dispatch event trigger.');
+  await expect(page.locator('body')).not.toContainText(workflow_trigger_notification_text);
 });
