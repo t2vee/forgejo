@@ -534,7 +534,7 @@ func (env *quotaWebEnv) RunVisitAndPostToPageTests(t *testing.T, page string, pa
 		PostToPage(page).
 		ExpectStatus(http.StatusRequestEntityTooLarge)
 
-	// Migrating to a limited org also fails, for the same reason.
+	// Posting to a limited org also fails, for the same reason.
 	env.As(t, env.Users.Limited).
 		With(Context{Payload: payload}).
 		With(Context{
@@ -545,7 +545,7 @@ func (env *quotaWebEnv) RunVisitAndPostToPageTests(t *testing.T, page string, pa
 		PostToPage(page).
 		ExpectStatus(http.StatusRequestEntityTooLarge)
 
-	// Migrating to an unlimited repo works, however.
+	// Posting to an unlimited repo works, however.
 	env.As(t, env.Users.Limited).
 		With(Context{Payload: payload}).
 		With(Context{
