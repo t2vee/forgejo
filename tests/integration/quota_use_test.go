@@ -160,6 +160,81 @@ func TestWebQuotaEnforcementRepoContentEditing(t *testing.T) {
 	})
 }
 
+func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		t.Run("create", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			csrfPath := env.Users.Limited.Repo.Link()
+
+			runTest := func(t *testing.T, path string) {
+				t.Run("#"+path, func(t *testing.T) {
+					defer tests.PrintCurrentTest(t)()
+
+					env.As(t, env.Users.Limited).
+						With(Context{
+							Payload:  &Payload{"new_branch_name": "quota"},
+							CSRFPath: &csrfPath,
+						}).
+						PostToRepoPage("/branches/_new" + path).
+						ExpectStatus(http.StatusRequestEntityTooLarge)
+
+					env.As(t, env.Users.Limited).
+						With(Context{
+							Payload:  &Payload{"new_branch_name": "quota"},
+							CSRFPath: &csrfPath,
+							Repo:     env.Orgs.Limited.Repo,
+						}).
+						PostToRepoPage("/branches/_new" + path).
+						ExpectStatus(http.StatusRequestEntityTooLarge)
+
+					env.As(t, env.Users.Limited).
+						With(Context{
+							Payload:  &Payload{"new_branch_name": "quota"},
+							CSRFPath: &csrfPath,
+							Repo:     env.Orgs.Unlimited.Repo,
+						}).
+						PostToRepoPage("/branches/_new" + path).
+						ExpectStatus(http.StatusNotFound)
+				})
+			}
+
+			// We're testing the first two against things that don't exist, so that
+			// all three consistently return 404 if no quota enforcement happens.
+			runTest(t, "/branch/no-such-branch")
+			runTest(t, "/tag/no-such-tag")
+			runTest(t, "/commit/92cfceb39d57d914ed8b14d0e37643de0797ae56")
+		})
+
+		t.Run("delete & restore", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			csrfPath := env.Users.Limited.Repo.Link()
+
+			env.As(t, env.Users.Limited).
+				With(Context{CSRFPath: &csrfPath}).
+				WithoutQuota(func(ctx *quotaWebEnvAsContext) {
+					ctx.With(Context{Payload: &Payload{"new_branch_name": "to-delete"}}).
+						PostToRepoPage("/branches/_new/branch/main").
+						ExpectStatus(http.StatusSeeOther)
+				})
+
+			env.As(t, env.Users.Limited).
+				With(Context{CSRFPath: &csrfPath}).
+				PostToRepoPage("/branches/delete?name=to-delete").
+				ExpectStatus(http.StatusOK)
+
+			env.As(t, env.Users.Limited).
+				With(Context{CSRFPath: &csrfPath}).
+				PostToRepoPage("/branches/restore?name=to-delete").
+				ExpectStatus(http.StatusOK)
+		})
+	})
+}
+
 /*
 Done:
 
@@ -179,6 +254,13 @@ Done:
   DONE repo.EditFile, repo.NewFile, repo.NewFilePost, repo.UploadFilePost => route check
   DONE repo.NewDiffPatch, repo.CherryPick => route check
 
+  DONE repo.MigrateRetryPost -> needs quota (done, need test)
+  DONE repo.MigrateCancelPost -> doesn't need quota
+
+  DONE /branches/_new => always quota check
+       incl: repo.CreateBranch
+  DONE repo.RestoreBranch{,Post} => no quota check needed. this does not change the storage size: it just restores what's already there.
+
 TODO:
   org.PackagesRuleAdd{,Post}
   org.PackagesRuleEdit{,Post}
@@ -192,20 +274,12 @@ TODO:
 
   repo_lfs.LFSAutoAssociate? do we care?
 
-  repo.MigrateRetryPost -> needs quota, probably
-  repo.MigrateCancelPost -> probs doesn't need quota
-
   repo.ActionTransfer() => quota!
 
   repo.CompareAndPullRequest{,Post} => needs to check target quota, I think
 
-
   repo.UploadFileToServer => where does this upload it to? quota check needed, but what subject?
 
-  /branches/_new => always quota check
-  incl: repo.CreateBranch
-
-  repo.RestoreBranch{,Post} => route check
 
   repo.NewRelease{,Post} => route check? since it can create tags.
   repo.EditRelease{,Post} => same
@@ -280,13 +354,16 @@ type quotaWebEnvAsContext struct {
 
 	Payload Payload
 
+	CSRFPath *string
+
 	request  *RequestWrapper
 	response *httptest.ResponseRecorder
 }
 
 type Context struct {
-	Repo    *repo_model.Repository
-	Payload *Payload
+	Repo     *repo_model.Repository
+	Payload  *Payload
+	CSRFPath *string
 }
 
 func (ctx *quotaWebEnvAsContext) With(opts Context) *quotaWebEnvAsContext {
@@ -297,6 +374,9 @@ func (ctx *quotaWebEnvAsContext) With(opts Context) *quotaWebEnvAsContext {
 		for key, value := range *opts.Payload {
 			ctx.Payload[key] = value
 		}
+	}
+	if opts.CSRFPath != nil {
+		ctx.CSRFPath = opts.CSRFPath
 	}
 	return ctx
 }
@@ -330,11 +410,22 @@ func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
 	payload := ctx.Payload
-	payload["_csrf"] = GetCSRF(ctx.t, ctx.Doer.Session, page)
+	csrfPath := page
+	if ctx.CSRFPath != nil {
+		csrfPath = *ctx.CSRFPath
+	}
+
+	payload["_csrf"] = GetCSRF(ctx.t, ctx.Doer.Session, csrfPath)
 
 	ctx.request = NewRequestWithValues(ctx.t, "POST", page, payload)
 
 	return ctx
+}
+
+func (ctx *quotaWebEnvAsContext) PostToRepoPage(page string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	return ctx.PostToPage(ctx.Repo.Link() + page)
 }
 
 func (ctx *quotaWebEnvAsContext) CreateAttachment(filename string) *quotaWebEnvAsContext {

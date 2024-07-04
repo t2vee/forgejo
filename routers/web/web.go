@@ -1258,7 +1258,7 @@ func registerRoutes(m *web.Route) {
 				m.Post("/commit/*", context.RepoRefByType(context.RepoRefCommit), repo.CreateBranch)
 			}, web.Bind(forms.NewBranchForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll, context.QuotaTargetRepo))
 			m.Post("/delete", repo.DeleteBranchPost)
-			m.Post("/restore", context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll, context.QuotaTargetRepo), repo.RestoreBranchPost)
+			m.Post("/restore", repo.RestoreBranchPost)
 		}, context.RepoMustNotBeArchived(), reqRepoCodeWriter, repo.MustBeNotEmpty)
 	}, reqSignIn, context.RepoAssignment, context.UnitTypes())
 
