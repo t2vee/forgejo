@@ -72,3 +72,10 @@ test('Test workflow dispatch success', async ({browser}, workerInfo) => {
 
   await expect(page.locator('.run-list>:first-child .run-list-meta', {hasText: 'now'})).toBeVisible();
 });
+
+test('Test workflow dispatch box not available for unauthenticated users', async ({page}) => {
+  await page.goto('/user2/test_workflows/actions?workflow=test-dispatch.yml&actor=0&status=0');
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.locator('body')).not.toContainText('This workflow has a workflow_dispatch event trigger.');
+});
