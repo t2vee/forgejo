@@ -168,34 +168,27 @@ func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
 		t.Run("create", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			csrfPath := env.Users.Limited.Repo.Link()
-
 			runTest := func(t *testing.T, path string) {
 				t.Run("#"+path, func(t *testing.T) {
 					defer tests.PrintCurrentTest(t)()
 
 					env.As(t, env.Users.Limited).
+						With(Context{Payload: &Payload{"new_branch_name": "quota"}}).
+						PostToRepoPage("/branches/_new" + path).
+						ExpectStatus(http.StatusRequestEntityTooLarge)
+
+					env.As(t, env.Users.Limited).
 						With(Context{
-							Payload:  &Payload{"new_branch_name": "quota"},
-							CSRFPath: &csrfPath,
+							Payload: &Payload{"new_branch_name": "quota"},
+							Repo:    env.Orgs.Limited.Repo,
 						}).
 						PostToRepoPage("/branches/_new" + path).
 						ExpectStatus(http.StatusRequestEntityTooLarge)
 
 					env.As(t, env.Users.Limited).
 						With(Context{
-							Payload:  &Payload{"new_branch_name": "quota"},
-							CSRFPath: &csrfPath,
-							Repo:     env.Orgs.Limited.Repo,
-						}).
-						PostToRepoPage("/branches/_new" + path).
-						ExpectStatus(http.StatusRequestEntityTooLarge)
-
-					env.As(t, env.Users.Limited).
-						With(Context{
-							Payload:  &Payload{"new_branch_name": "quota"},
-							CSRFPath: &csrfPath,
-							Repo:     env.Orgs.Unlimited.Repo,
+							Payload: &Payload{"new_branch_name": "quota"},
+							Repo:    env.Orgs.Unlimited.Repo,
 						}).
 						PostToRepoPage("/branches/_new" + path).
 						ExpectStatus(http.StatusNotFound)
@@ -212,10 +205,7 @@ func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
 		t.Run("delete & restore", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			csrfPath := env.Users.Limited.Repo.Link()
-
 			env.As(t, env.Users.Limited).
-				With(Context{CSRFPath: &csrfPath}).
 				WithoutQuota(func(ctx *quotaWebEnvAsContext) {
 					ctx.With(Context{Payload: &Payload{"new_branch_name": "to-delete"}}).
 						PostToRepoPage("/branches/_new/branch/main").
@@ -223,12 +213,10 @@ func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
 				})
 
 			env.As(t, env.Users.Limited).
-				With(Context{CSRFPath: &csrfPath}).
 				PostToRepoPage("/branches/delete?name=to-delete").
 				ExpectStatus(http.StatusOK)
 
 			env.As(t, env.Users.Limited).
-				With(Context{CSRFPath: &csrfPath}).
 				PostToRepoPage("/branches/restore?name=to-delete").
 				ExpectStatus(http.StatusOK)
 		})
@@ -270,6 +258,44 @@ func TestWebQuotaEnforcementRepoReleases(t *testing.T) {
 	})
 }
 
+func TestWebQuotaEnforcementRepoPulls(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		// To create a pull request, we first fork the two limited repos into the
+		// unlimited org.
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Users.Limited.Repo}).
+			ForkRepoInto(env.Orgs.Unlimited)
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Orgs.Limited.Repo}).
+			ForkRepoInto(env.Orgs.Unlimited)
+
+		// Then, create pull requests from the forks, back to the main repos
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Users.Limited.Repo}).
+			CreatePullFrom(env.Orgs.Unlimited)
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Orgs.Limited.Repo}).
+			CreatePullFrom(env.Orgs.Unlimited)
+
+		// Trying to merge the pull request will fail for both, though, due to being
+		// over quota.
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Users.Limited.Repo}).
+			With(Context{Payload: &Payload{"do": "merge"}}).
+			PostToRepoPage("/pulls/1/merge").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
+
+		env.As(t, env.Users.Limited).
+			With(Context{Repo: env.Orgs.Limited.Repo}).
+			With(Context{Payload: &Payload{"do": "merge"}}).
+			PostToRepoPage("/pulls/1/merge").
+			ExpectStatus(http.StatusRequestEntityTooLarge)
+	})
+}
+
 /*
 Done:
 
@@ -304,6 +330,8 @@ Done:
   DONE repo.EditRelease{,Post} => same
   DONE repo.UploadReleaseAttachment => route check
 
+  DONE repo.MergePullRequest => route check
+
 TODO:
 
   protected tags? do they ++ git size, or are they db only like protected branch settings?
@@ -314,7 +342,6 @@ TODO:
 
   repo.WikiPost => route check
 
-  repo.MergePullRequest => route check
 
   repo.LastCommit POST => ???
 
@@ -434,6 +461,30 @@ func (ctx *quotaWebEnvAsContext) ExpectFlashMessage(value string) {
 	assert.EqualValues(ctx.t, value, flashMessage)
 }
 
+func (ctx *quotaWebEnvAsContext) ForkRepoInto(org quotaWebEnvOrg) {
+	ctx.t.Helper()
+
+	ctx.
+		With(Context{Payload: &Payload{
+			"uid":       org.ID().AsString(),
+			"repo_name": ctx.Repo.Name + "-fork",
+		}}).
+		PostToRepoPage("/fork").
+		ExpectStatus(http.StatusSeeOther)
+}
+
+func (ctx *quotaWebEnvAsContext) CreatePullFrom(org quotaWebEnvOrg) {
+	ctx.t.Helper()
+
+	url := fmt.Sprintf("/compare/main...%s:main", org.Org.Name)
+	ctx.
+		With(Context{Payload: &Payload{
+			"title": "PR test",
+		}}).
+		PostToRepoPage(url).
+		ExpectStatus(http.StatusOK)
+}
+
 func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
@@ -453,7 +504,8 @@ func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
 func (ctx *quotaWebEnvAsContext) PostToRepoPage(page string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
-	return ctx.PostToPage(ctx.Repo.Link() + page)
+	csrfPath := ctx.Repo.Link()
+	return ctx.With(Context{CSRFPath: &csrfPath}).PostToPage(ctx.Repo.Link() + page)
 }
 
 func (ctx *quotaWebEnvAsContext) CreateAttachment(filename, attachmentType string) *quotaWebEnvAsContext {
