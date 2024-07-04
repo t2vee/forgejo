@@ -334,14 +334,11 @@ Done:
 
 TODO:
 
-  repo_lfs.LFSAutoAssociate? do we care?
-
   repo.ActionTransfer() => quota!
 
   repo.WikiPost => route check
 
-  repo.LastCommit POST => ???
-
+  repo_lfs.LFSAutoAssociate? do we care?
   lfs.BatchHandler => special quota check
   lfs.UploadHandler => route or special?
 */
