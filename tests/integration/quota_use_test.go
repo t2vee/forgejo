@@ -26,6 +26,7 @@ import (
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers"
 	repo_service "code.gitea.io/gitea/services/repository"
+	"code.gitea.io/gitea/tests"
 
 	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -110,6 +111,55 @@ func TestWebQuotaEnforcementMirrorSync(t *testing.T) {
 	})
 }
 
+func TestWebQuotaEnforcementRepoContentEditing(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		// We're only going to test the GET requests here, because the entire combo
+		// is covered by a route check.
+
+		// Lets create a helper!
+		runCheck := func(t *testing.T, path string, successStatus int) {
+			t.Run("#"+path, func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+
+				// Uploading to a limited user's repo => 413
+				env.As(t, env.Users.Limited).
+					VisitPage(env.Users.Limited.Repo.Link() + path).
+					ExpectStatus(http.StatusRequestEntityTooLarge)
+
+				// Limited org => 413
+				env.As(t, env.Users.Limited).
+					VisitPage(env.Orgs.Limited.Repo.Link() + path).
+					ExpectStatus(http.StatusRequestEntityTooLarge)
+
+				// Unlimited org => 200
+				env.As(t, env.Users.Limited).
+					VisitPage(env.Orgs.Unlimited.Repo.Link() + path).
+					ExpectStatus(successStatus)
+			})
+		}
+
+		paths := []string{
+			"/_new/main",
+			"/_edit/main/README.md",
+			"/_delete/main",
+			"/_upload/main",
+			"/_diffpatch/main",
+		}
+
+		for _, path := range paths {
+			runCheck(t, path, http.StatusOK)
+		}
+
+		// Run another check for `_cherrypick`. It's cumbersome to dig out a valid
+		// commit id, so we'll use a fake, and treat 404 as a success: it's not 413,
+		// and that's all we care about for this test.
+		runCheck(t, "/_cherrypick/92cfceb39d57d914ed8b14d0e37643de0797ae56/main", http.StatusNotFound)
+	})
+}
+
 /*
 Done:
 
@@ -124,6 +174,10 @@ Done:
   DONE repo.UploadIssueAttachment => route check
 
   DONE mirror-sync
+
+  DONE repo.DiffPreviewPost => applies a patch, route check
+  DONE repo.EditFile, repo.NewFile, repo.NewFilePost, repo.UploadFilePost => route check
+  DONE repo.NewDiffPatch, repo.CherryPick => route check
 
 TODO:
   org.PackagesRuleAdd{,Post}
@@ -145,11 +199,6 @@ TODO:
 
   repo.CompareAndPullRequest{,Post} => needs to check target quota, I think
 
-  repo.DiffPreviewPost => need quota here?
-
-  repo.EditFile, repo.NewFile, repo.NewFilePost, repo.UploadFilePost => route check
-
-  repo.NewDiffPatch, repo.CherryPick => wtf do these do?
 
   repo.UploadFileToServer => where does this upload it to? quota check needed, but what subject?
 
