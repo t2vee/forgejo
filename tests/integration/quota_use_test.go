@@ -264,10 +264,7 @@ Done:
   LATER repo.UploadFileToServer => where does this upload it to? quota check needed, but what subject?
 
 TODO:
-  org.PackagesRuleAdd{,Post}
-  org.PackagesRuleEdit{,Post}
-
-  user.PackageSettingsPost => verify target? if this is where assignment happens
+  user.PackageSettingsPost => needs to verify the target
 
   protected tags? do they ++ git size, or are they db only like protected branch settings?
 
@@ -279,8 +276,6 @@ TODO:
   repo.EditRelease{,Post} => same
 
   repo.UploadReleaseAttachment => route check
-
-  repo.{Disable,Enable}Workflowfile => does this touch the git repo or anything?
 
   repo.WikiPost => route check
 
