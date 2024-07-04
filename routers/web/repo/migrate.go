@@ -265,6 +265,25 @@ func setMigrationContextData(ctx *context.Context, serviceType structs.GitServic
 }
 
 func MigrateRetryPost(ctx *context.Context) {
+	ok, err := quota_model.EvaluateForUser(ctx, ctx.Repo.Repository.OwnerID, quota_model.LimitSubjectSizeReposAll)
+	if err != nil {
+		log.Error("quota_model.EvaluateForUser: %v", err)
+		ctx.ServerError("quota_model.EvaluateForUser", err)
+		return
+	}
+	if !ok {
+		if err := task.SetMigrateTaskMessage(ctx, ctx.Repo.Repository.ID, ctx.Locale.TrString("repo.settings.pull_mirror_sync_quota_exceeded")); err != nil {
+			log.Error("SetMigrateTaskMessage failed: %v", err)
+			ctx.ServerError("task.SetMigrateTaskMessage", err)
+			return
+		}
+		ctx.JSON(http.StatusRequestEntityTooLarge, map[string]any{
+			"ok":    false,
+			"error": ctx.Tr("repo.settings.pull_mirror_sync_quota_exceeded"),
+		})
+		return
+	}
+
 	if err := task.RetryMigrateTask(ctx, ctx.Repo.Repository.ID); err != nil {
 		log.Error("Retry task failed: %v", err)
 		ctx.ServerError("task.RetryMigrateTask", err)
