@@ -73,19 +73,19 @@ func TestWebQuotaEnforcementIssueAttachment(t *testing.T) {
 		// Uploading to our repo => 413
 		env.As(t, env.Users.Limited).
 			With(Context{Repo: env.Users.Limited.Repo}).
-			CreateAttachment("test.txt").
+			CreateIssueAttachment("test.txt").
 			ExpectStatus(http.StatusRequestEntityTooLarge)
 
 		// Uploading to the limited org repo => 413
 		env.As(t, env.Users.Limited).
 			With(Context{Repo: env.Orgs.Limited.Repo}).
-			CreateAttachment("test.txt").
+			CreateIssueAttachment("test.txt").
 			ExpectStatus(http.StatusRequestEntityTooLarge)
 
 		// Uploading to the unlimited org repo => 200
 		env.As(t, env.Users.Limited).
 			With(Context{Repo: env.Orgs.Unlimited.Repo}).
-			CreateAttachment("test.txt").
+			CreateIssueAttachment("test.txt").
 			ExpectStatus(http.StatusOK)
 	})
 }
@@ -235,6 +235,41 @@ func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
 	})
 }
 
+func TestWebQuotaEnforcementRepoReleases(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		env.RunVisitAndPostToRepoPageTests(t, "/releases/new", &Payload{
+			"tag_name":   "quota",
+			"tag_target": "main",
+			"title":      "test release",
+		}, http.StatusSeeOther)
+
+		t.Run("attachments", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			// Uploading to our repo => 413
+			env.As(t, env.Users.Limited).
+				With(Context{Repo: env.Users.Limited.Repo}).
+				CreateReleaseAttachment("test.txt").
+				ExpectStatus(http.StatusRequestEntityTooLarge)
+
+			// Uploading to the limited org repo => 413
+			env.As(t, env.Users.Limited).
+				With(Context{Repo: env.Orgs.Limited.Repo}).
+				CreateReleaseAttachment("test.txt").
+				ExpectStatus(http.StatusRequestEntityTooLarge)
+
+			// Uploading to the unlimited org repo => 200
+			env.As(t, env.Users.Limited).
+				With(Context{Repo: env.Orgs.Unlimited.Repo}).
+				CreateReleaseAttachment("test.txt").
+				ExpectStatus(http.StatusOK)
+		})
+	})
+}
+
 /*
 Done:
 
@@ -265,6 +300,10 @@ Done:
 
   DONE user.PackageSettingsPost => no verification needed, packages can only be assigned to repos that have the same owner as the package, so no quota usage transfer is involved.
 
+  DONE repo.NewRelease{,Post} => route check? since it can create tags.
+  DONE repo.EditRelease{,Post} => same
+  DONE repo.UploadReleaseAttachment => route check
+
 TODO:
 
   protected tags? do they ++ git size, or are they db only like protected branch settings?
@@ -272,11 +311,6 @@ TODO:
   repo_lfs.LFSAutoAssociate? do we care?
 
   repo.ActionTransfer() => quota!
-
-  repo.NewRelease{,Post} => route check? since it can create tags.
-  repo.EditRelease{,Post} => same
-
-  repo.UploadReleaseAttachment => route check
 
   repo.WikiPost => route check
 
@@ -377,6 +411,12 @@ func (ctx *quotaWebEnvAsContext) VisitPage(page string) *quotaWebEnvAsContext {
 	return ctx
 }
 
+func (ctx *quotaWebEnvAsContext) VisitRepoPage(page string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	return ctx.VisitPage(ctx.Repo.Link() + page)
+}
+
 func (ctx *quotaWebEnvAsContext) ExpectStatus(status int) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
@@ -416,7 +456,7 @@ func (ctx *quotaWebEnvAsContext) PostToRepoPage(page string) *quotaWebEnvAsConte
 	return ctx.PostToPage(ctx.Repo.Link() + page)
 }
 
-func (ctx *quotaWebEnvAsContext) CreateAttachment(filename string) *quotaWebEnvAsContext {
+func (ctx *quotaWebEnvAsContext) CreateAttachment(filename, attachmentType string) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
 	body := &bytes.Buffer{}
@@ -433,11 +473,23 @@ func (ctx *quotaWebEnvAsContext) CreateAttachment(filename string) *quotaWebEnvA
 
 	csrf := GetCSRF(ctx.t, ctx.Doer.Session, ctx.Repo.Link())
 
-	ctx.request = NewRequestWithBody(ctx.t, "POST", ctx.Repo.Link()+"/issues/attachments", body)
+	ctx.request = NewRequestWithBody(ctx.t, "POST", fmt.Sprintf("%s/%s/attachments", ctx.Repo.Link(), attachmentType), body)
 	ctx.request.Header.Add("X-Csrf-Token", csrf)
 	ctx.request.Header.Add("Content-Type", writer.FormDataContentType())
 
 	return ctx
+}
+
+func (ctx *quotaWebEnvAsContext) CreateIssueAttachment(filename string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	return ctx.CreateAttachment(filename, "issues")
+}
+
+func (ctx *quotaWebEnvAsContext) CreateReleaseAttachment(filename string) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	return ctx.CreateAttachment(filename, "releases")
 }
 
 func (ctx *quotaWebEnvAsContext) WithoutQuota(task func(ctx *quotaWebEnvAsContext)) *quotaWebEnvAsContext {
@@ -513,6 +565,63 @@ func (env *quotaWebEnv) As(t *testing.T, user quotaWebEnvUser) *quotaWebEnvAsCon
 		Payload: Payload{},
 	}
 	return &ctx
+}
+
+func (env *quotaWebEnv) RunVisitAndPostToRepoPageTests(t *testing.T, page string, payload *Payload, successStatus int) {
+	t.Helper()
+
+	// Visiting the user's repo page fails due to being over quota.
+	env.As(t, env.Users.Limited).
+		With(Context{Repo: env.Users.Limited.Repo}).
+		VisitRepoPage(page).
+		ExpectStatus(http.StatusRequestEntityTooLarge)
+
+	// Posting as the limited user, to the limited repo, fails due to being over
+	// quota.
+	csrfPath := env.Users.Limited.Repo.Link()
+	env.As(t, env.Users.Limited).
+		With(Context{
+			Payload:  payload,
+			CSRFPath: &csrfPath,
+			Repo:     env.Users.Limited.Repo,
+		}).
+		PostToRepoPage(page).
+		ExpectStatus(http.StatusRequestEntityTooLarge)
+
+	// Visiting the limited org's repo page fails due to being over quota.
+	env.As(t, env.Users.Limited).
+		With(Context{Repo: env.Orgs.Limited.Repo}).
+		VisitRepoPage(page).
+		ExpectStatus(http.StatusRequestEntityTooLarge)
+
+	// Posting as the limited user, to a limited org's repo, fails for the same
+	// reason.
+	csrfPath = env.Orgs.Limited.Repo.Link()
+	env.As(t, env.Users.Limited).
+		With(Context{
+			Payload:  payload,
+			CSRFPath: &csrfPath,
+			Repo:     env.Orgs.Limited.Repo,
+		}).
+		PostToRepoPage(page).
+		ExpectStatus(http.StatusRequestEntityTooLarge)
+
+	// Visiting the repo page for the unlimited org succeeds.
+	env.As(t, env.Users.Limited).
+		With(Context{Repo: env.Orgs.Unlimited.Repo}).
+		VisitRepoPage(page).
+		ExpectStatus(http.StatusOK)
+
+	// Posting as the limited user, to an unlimited org's repo, succeeds.
+	csrfPath = env.Orgs.Unlimited.Repo.Link()
+	env.As(t, env.Users.Limited).
+		With(Context{
+			Payload:  payload,
+			CSRFPath: &csrfPath,
+			Repo:     env.Orgs.Unlimited.Repo,
+		}).
+		PostToRepoPage(page).
+		ExpectStatus(successStatus)
 }
 
 func (env *quotaWebEnv) RunVisitAndPostToPageTests(t *testing.T, page string, payload *Payload, successStatus int) {
