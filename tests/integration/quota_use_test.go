@@ -286,8 +286,6 @@ TODO:
 
   repo.MergePullRequest => route check
 
-  repo.UpdatePullRequest => no check needed
-
   repo.LastCommit POST => ???
 
   lfs.BatchHandler => special quota check
