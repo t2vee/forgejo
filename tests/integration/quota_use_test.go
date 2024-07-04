@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"code.gitea.io/gitea/models/db"
@@ -24,6 +25,7 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers"
+	repo_service "code.gitea.io/gitea/services/repository"
 
 	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -87,6 +89,27 @@ func TestWebQuotaEnforcementIssueAttachment(t *testing.T) {
 	})
 }
 
+func TestWebQuotaEnforcementMirrorSync(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		env := createQuotaWebEnv(t)
+		defer env.Cleanup()
+
+		var mirrorRepo *repo_model.Repository
+
+		env.As(t, env.Users.Limited).
+			WithoutQuota(func(ctx *quotaWebEnvAsContext) {
+				mirrorRepo = ctx.CreateMirror()
+			}).
+			With(Context{
+				Repo:    mirrorRepo,
+				Payload: &Payload{"action": "mirror-sync"},
+			}).
+			PostToPage(mirrorRepo.Link() + "/settings").
+			ExpectStatus(http.StatusOK).
+			ExpectFlashMessage("Quota exceeded, not pulling changes.")
+	})
+}
+
 /*
 Done:
 
@@ -99,6 +122,8 @@ Done:
   PR & DONE repo.Fork{,Post} => filter & target check
 
   DONE repo.UploadIssueAttachment => route check
+
+  DONE mirror-sync
 
 TODO:
   org.PackagesRuleAdd{,Post}
@@ -206,7 +231,8 @@ type quotaWebEnvAsContext struct {
 
 	Payload Payload
 
-	request *RequestWrapper
+	request  *RequestWrapper
+	response *httptest.ResponseRecorder
 }
 
 type Context struct {
@@ -234,10 +260,21 @@ func (ctx *quotaWebEnvAsContext) VisitPage(page string) *quotaWebEnvAsContext {
 	return ctx
 }
 
-func (ctx *quotaWebEnvAsContext) ExpectStatus(status int) *httptest.ResponseRecorder {
+func (ctx *quotaWebEnvAsContext) ExpectStatus(status int) *quotaWebEnvAsContext {
 	ctx.t.Helper()
 
-	return ctx.Doer.Session.MakeRequest(ctx.t, ctx.request, status)
+	ctx.response = ctx.Doer.Session.MakeRequest(ctx.t, ctx.request, status)
+
+	return ctx
+}
+
+func (ctx *quotaWebEnvAsContext) ExpectFlashMessage(value string) {
+	ctx.t.Helper()
+
+	htmlDoc := NewHTMLParser(ctx.t, ctx.response.Body)
+	flashMessage := strings.TrimSpace(htmlDoc.Find(`.flash-message`).Text())
+
+	assert.EqualValues(ctx.t, value, flashMessage)
 }
 
 func (ctx *quotaWebEnvAsContext) PostToPage(page string) *quotaWebEnvAsContext {
@@ -273,6 +310,30 @@ func (ctx *quotaWebEnvAsContext) CreateAttachment(filename string) *quotaWebEnvA
 	ctx.request.Header.Add("Content-Type", writer.FormDataContentType())
 
 	return ctx
+}
+
+func (ctx *quotaWebEnvAsContext) WithoutQuota(task func(ctx *quotaWebEnvAsContext)) *quotaWebEnvAsContext {
+	ctx.t.Helper()
+
+	defer ctx.Doer.SetQuota(-1)()
+	task(ctx)
+
+	return ctx
+}
+
+func (ctx *quotaWebEnvAsContext) CreateMirror() *repo_model.Repository {
+	ctx.t.Helper()
+
+	doer := ctx.Doer.User
+
+	repo, err := repo_service.CreateRepositoryDirectly(db.DefaultContext, doer, doer, repo_service.CreateRepoOptions{
+		Name:     "test-mirror",
+		IsMirror: true,
+		Status:   repo_model.RepositoryBeingMigrated,
+	})
+	assert.NoError(ctx.t, err)
+
+	return repo
 }
 
 func (user *quotaWebEnvUser) SetQuota(limit int64) func() {
