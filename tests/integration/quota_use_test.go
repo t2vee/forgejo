@@ -263,8 +263,9 @@ Done:
 
   LATER repo.UploadFileToServer => where does this upload it to? quota check needed, but what subject?
 
+  DONE user.PackageSettingsPost => no verification needed, packages can only be assigned to repos that have the same owner as the package, so no quota usage transfer is involved.
+
 TODO:
-  user.PackageSettingsPost => needs to verify the target
 
   protected tags? do they ++ git size, or are they db only like protected branch settings?
 
