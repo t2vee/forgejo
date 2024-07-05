@@ -61,7 +61,7 @@ func LinkAccount(ctx *context.Context) {
 		return
 	}
 	email := gu.Email
-	ctx.Data["user_name"] = uname
+	ctx.Data["username"] = uname
 	ctx.Data["email"] = email
 
 	if len(email) != 0 {
